@@ -334,12 +334,16 @@ class MainActivity : AppCompatActivity() {
         tvEmotionEmoji.text = getEmotionEmoji(currentEmotion)
         tvHasilEmosi.text = currentEmotion
 
-        // Tampilkan semua 4 skor untuk membantu diagnosis
+        // Tampilkan raw scores + corrected scores untuk diagnosis
         val detector = emotionDetector
         val scoreText = if (detector != null) {
-            detector.labels.mapIndexed { i, lbl ->
+            val corrected = detector.labels.mapIndexed { i, lbl ->
                 "$lbl ${String.format("%.0f", hasil.allScores[i] * 100)}%"
             }.joinToString(" | ")
+            val raw = detector.labels.mapIndexed { i, lbl ->
+                "$lbl ${String.format("%.0f", hasil.rawScores[i] * 100)}%"
+            }.joinToString("|")
+            "Hasil: $corrected\nRaw: $raw"
         } else {
             "Keyakinan: ${String.format("%.1f", confidence)}%"
         }
