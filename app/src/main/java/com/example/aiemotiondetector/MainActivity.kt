@@ -1,17 +1,18 @@
 package com.example.aiemotiondetector
 
-// appV1.0 Rev 6 (MainActivity.kt)
-// Fix: Error model AI kini tampil di card UI (bukan hanya Toast)
-// Fix: EmotionDetector tidak lagi bergantung tensorflow-lite-support
-// Fix: Tombol kini retry init model otomatis (model sebelumnya gagal load
-// karena FULLY_CONNECTED v12 tidak didukung tensorflow-lite:2.16.1 — sudah
-// diganti ke LiteRT 1.0.1 yang mendukung op tersebut)
+// appV1.0 Rev 7 (MainActivity.kt)
+// Fix: tambah ML Kit face detection — crop wajah sebelum inference
+//      Model FANE ditraining dengan foto wajah yang sudah di-crop ketat,
+//      tanpa ini model melihat foto penuh (badan+background) yang tidak sesuai distribusi training
+// Fix: tambah EXIF orientation — foto dari kamera sering tersimpan miring 90°
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
-import android.graphics.ImageDecoder
+import android.graphics.Matrix
+import android.graphics.Rect
+import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -34,22 +35,25 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.FaceDetection
+import com.google.mlkit.vision.face.FaceDetectorOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.coroutines.resume
+import android.graphics.ImageDecoder
 
 class MainActivity : AppCompatActivity() {
 
-    // Nullable: aman di onDestroy meski init model gagal
     private var emotionDetector: EmotionDetector? = null
     private var modelInitError: String = ""
     private var currentEmotion: String = ""
 
-    // URI sementara untuk menyimpan hasil foto kamera
     private var cameraImageUri: Uri? = null
 
-    // UI Components
     private lateinit var layoutPlaceholder: LinearLayout
     private lateinit var ivPreview: ImageView
     private lateinit var tvEmotionEmoji: TextView
@@ -63,13 +67,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cardResult: MaterialCardView
     private lateinit var cardGemini: MaterialCardView
 
-    // ─── Activity Result: Ambil dari Galeri ──────────────────────────────────
     private val pickImageFromGallery =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             uri?.let { processSelectedImage(it) }
         }
 
-    // ─── Activity Result: Ambil Foto dari Kamera ─────────────────────────────
     private val takePictureFromCamera =
         registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
             if (success) {
@@ -79,7 +81,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-    // ─── Activity Result: Minta Izin Kamera ──────────────────────────────────
     private val requestCameraPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (isGranted) {
@@ -97,7 +98,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Binding semua UI component
         layoutPlaceholder = findViewById(R.id.layoutPlaceholder)
         ivPreview = findViewById(R.id.ivPreview)
         tvEmotionEmoji = findViewById(R.id.tvEmotionEmoji)
@@ -111,13 +111,10 @@ class MainActivity : AppCompatActivity() {
         cardResult = findViewById(R.id.cardResult)
         cardGemini = findViewById(R.id.cardGemini)
 
-        // Inisialisasi TFLite model — error disimpan untuk ditampilkan di UI
         initModel()
 
         btnPilihFoto.setOnClickListener {
             if (emotionDetector == null) {
-                // Coba init ulang sebelum menyerah — berguna setelah fix dependency
-                // tanpa user harus force-stop aplikasi secara manual
                 initModel()
             }
             if (emotionDetector == null) {
@@ -132,8 +129,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Coba inisialisasi TFLite model. Dipanggil di onCreate, dan dicoba ulang
-    // saat tombol diklik jika percobaan pertama gagal.
     private fun initModel() {
         if (emotionDetector != null) return
         try {
@@ -144,7 +139,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Tampilkan error model di card result agar tidak terlewat seperti Toast
     private fun showModelError(errorMsg: String) {
         val errorColor = ContextCompat.getColor(this, R.color.error)
         cardResult.setCardBackgroundColor(ColorStateList.valueOf(errorColor))
@@ -153,8 +147,6 @@ class MainActivity : AppCompatActivity() {
         tvConfidenceLabel.text = "Error: $errorMsg"
         progressConfidence.progress = 0
     }
-
-    // ─── Dialog Pilih Sumber Foto ─────────────────────────────────────────────
 
     private fun showSourceChooserDialog() {
         val options = arrayOf(
@@ -172,8 +164,6 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Batal", null)
             .show()
     }
-
-    // ─── Kamera: Cek Izin → Buka ─────────────────────────────────────────────
 
     private fun checkCameraPermissionAndOpen() {
         val permissionStatus = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
@@ -194,7 +184,6 @@ class MainActivity : AppCompatActivity() {
         takePictureFromCamera.launch(uri)
     }
 
-    // Buat URI sementara di cache untuk foto kamera (wajib Android 7+ via FileProvider)
     private fun createCameraImageUri(): Uri? {
         return try {
             val imagesDir = File(cacheDir, "images").also { it.mkdirs() }
@@ -205,10 +194,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ─── Proses Gambar (dipanggil dari kamera MAUPUN galeri) ──────────────────
+    // ─── Proses Gambar ────────────────────────────────────────────────────────
 
     private fun processSelectedImage(uri: Uri) {
-        // Reset state sebelum proses gambar baru
         cardGemini.visibility = View.GONE
         tvResponsGemini.text = ""
         btnTanyaGemini.visibility = View.GONE
@@ -216,16 +204,19 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                // Decode gambar di IO thread agar UI tidak freeze
-                val bitmap = withContext(Dispatchers.IO) { uriToBitmap(uri) }
+                // 1. Decode + perbaiki orientasi EXIF agar gambar tidak miring
+                val bitmap = withContext(Dispatchers.IO) { uriToBitmapWithExif(uri) }
 
                 ivPreview.setImageBitmap(bitmap)
                 layoutPlaceholder.visibility = View.GONE
                 ivPreview.visibility = View.VISIBLE
 
-                // Jalankan TFLite inference di Default thread
+                // 2. Crop area wajah terlebih dahulu — model FANE ditraining dengan foto wajah yang sudah di-crop
+                val faceBitmap = cropFaceFromBitmap(bitmap)
+
+                // 3. Jalankan inference TFLite pada area wajah yang sudah di-crop
                 val hasil = withContext(Dispatchers.Default) {
-                    emotionDetector?.detectEmotion(bitmap)
+                    emotionDetector?.detectEmotion(faceBitmap)
                 }
 
                 when {
@@ -234,7 +225,6 @@ class MainActivity : AppCompatActivity() {
                     else -> showModelError("detectEmotion mengembalikan null")
                 }
             } catch (e: Exception) {
-                // Tampilkan error inference di card agar tidak terlewat
                 showModelError("Deteksi gagal: ${e.localizedMessage}")
             } finally {
                 setUiLoading(false)
@@ -242,7 +232,100 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ─── Tampilkan Hasil Deteksi Emosi ───────────────────────────────────────
+    // ─── EXIF Rotation Fix ────────────────────────────────────────────────────
+
+    private fun uriToBitmapWithExif(uri: Uri): Bitmap {
+        val bitmap = decodeBitmapFromUri(uri)
+        return applyExifRotation(bitmap, uri)
+    }
+
+    private fun decodeBitmapFromUri(uri: Uri): Bitmap {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val source = ImageDecoder.createSource(contentResolver, uri)
+            ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                decoder.isMutableRequired = true
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            MediaStore.Images.Media.getBitmap(contentResolver, uri)
+        }
+    }
+
+    private fun applyExifRotation(bitmap: Bitmap, uri: Uri): Bitmap {
+        return try {
+            val inputStream = contentResolver.openInputStream(uri) ?: return bitmap
+            val exif = ExifInterface(inputStream)
+            inputStream.close()
+            val degrees = when (
+                exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+            ) {
+                ExifInterface.ORIENTATION_ROTATE_90  -> 90f
+                ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                else -> 0f
+            }
+            if (degrees == 0f) return bitmap
+            val matrix = Matrix().apply { postRotate(degrees) }
+            val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            if (rotated !== bitmap) bitmap.recycle()
+            rotated
+        } catch (e: Exception) {
+            bitmap
+        }
+    }
+
+    // ─── ML Kit Face Detection + Crop ─────────────────────────────────────────
+
+    private suspend fun cropFaceFromBitmap(bitmap: Bitmap): Bitmap {
+        return suspendCancellableCoroutine { cont ->
+            val options = FaceDetectorOptions.Builder()
+                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                .setMinFaceSize(0.1f)
+                .build()
+
+            val inputImage = InputImage.fromBitmap(bitmap, 0)
+
+            FaceDetection.getClient(options).process(inputImage)
+                .addOnSuccessListener { faces ->
+                    if (faces.isNotEmpty()) {
+                        // Ambil wajah terbesar (paling dekat ke kamera)
+                        val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }!!
+                        val cropped = safeCropWithPadding(bitmap, face.boundingBox, paddingFraction = 0.20f)
+                        cont.resume(cropped)
+                    } else {
+                        // Tidak ada wajah terdeteksi — fallback ke center-crop 75%
+                        cont.resume(centerCrop(bitmap, 0.75f))
+                    }
+                }
+                .addOnFailureListener {
+                    cont.resume(bitmap)
+                }
+        }
+    }
+
+    private fun safeCropWithPadding(bitmap: Bitmap, bounds: Rect, paddingFraction: Float): Bitmap {
+        val size = maxOf(bounds.width(), bounds.height())
+        val pad = (size * paddingFraction).toInt()
+        val left  = maxOf(0, bounds.left - pad)
+        val top   = maxOf(0, bounds.top - pad)
+        val right  = minOf(bitmap.width,  bounds.right + pad)
+        val bottom = minOf(bitmap.height, bounds.bottom + pad)
+        return if (right > left && bottom > top) {
+            Bitmap.createBitmap(bitmap, left, top, right - left, bottom - top)
+        } else {
+            bitmap
+        }
+    }
+
+    private fun centerCrop(bitmap: Bitmap, fraction: Float): Bitmap {
+        val cropW = (bitmap.width * fraction).toInt()
+        val cropH = (bitmap.height * fraction).toInt()
+        val left = (bitmap.width - cropW) / 2
+        val top  = (bitmap.height - cropH) / 2
+        return Bitmap.createBitmap(bitmap, left, top, cropW, cropH)
+    }
+
+    // ─── Tampilkan Hasil Deteksi ──────────────────────────────────────────────
 
     private fun tampilkanHasilDeteksi(hasil: Pair<String, Float>) {
         currentEmotion = hasil.first
@@ -257,7 +340,6 @@ class MainActivity : AppCompatActivity() {
         btnTanyaGemini.visibility = View.VISIBLE
     }
 
-    // Warna card berubah dinamis sesuai emosi yang terdeteksi
     private fun updateEmotionColor(emotion: String) {
         val colorRes = when (emotion.uppercase()) {
             "ANGRY"   -> R.color.color_angry
@@ -288,7 +370,7 @@ class MainActivity : AppCompatActivity() {
         progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
     }
 
-    // ─── Gemini API Logic ─────────────────────────────────────────────────────
+    // ─── Gemini API ───────────────────────────────────────────────────────────
 
     private fun getGeminiApiKey(): String =
         getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -310,7 +392,6 @@ class MainActivity : AppCompatActivity() {
         jalankanGeminiRequest(emosi, apiKey)
     }
 
-    // Dialog input API key — cukup sekali, disimpan di SharedPreferences
     private fun showApiKeyDialog(emosi: String) {
         val editText = EditText(this).apply {
             hint = "Masukkan Gemini API Key"
@@ -367,7 +448,6 @@ class MainActivity : AppCompatActivity() {
                     progressBar.visibility = View.GONE
                     btnTanyaGemini.visibility = View.VISIBLE
                     val errMsg = e.localizedMessage ?: "Unknown error"
-                    // Jika key tidak valid, hapus agar user bisa input ulang
                     if (errMsg.contains("API_KEY_INVALID", ignoreCase = true) ||
                         errMsg.contains("401") || errMsg.contains("403")
                     ) {
@@ -380,20 +460,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-        }
-    }
-
-    // ─── Helper ──────────────────────────────────────────────────────────────
-
-    private fun uriToBitmap(uri: Uri): Bitmap {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val source = ImageDecoder.createSource(contentResolver, uri)
-            ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
-                decoder.isMutableRequired = true
-            }
-        } else {
-            @Suppress("DEPRECATION")
-            MediaStore.Images.Media.getBitmap(contentResolver, uri)
         }
     }
 

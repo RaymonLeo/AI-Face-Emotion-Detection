@@ -53,7 +53,10 @@ dependencies {
     // 2. SDK Resmi Gemini AI untuk Android
     implementation(libs.generativeai)
 
-    // 3. Coroutines untuk pemrosesan Asynchronous
+    // 3. ML Kit Face Detection — crop wajah sebelum inference agar sesuai distribusi training
+    implementation(libs.mlkit.face.detection)
+
+    // 4. Coroutines untuk pemrosesan Asynchronous
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.lifecycle.runtime.ktx)
 
