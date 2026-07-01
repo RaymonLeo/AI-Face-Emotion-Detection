@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- appV1.0 Rev 3 (ic_launcher_foreground.xml) — Logo 4 Emosi -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- ══ HAPPY (Kiri Atas) — Kuning/Amber ══ -->
+    <!-- Lingkaran wajah -->
+    <path android:fillColor="#F59E0B"
+          android:pathData="M27,27 m-20,0 a20,20 0,1,1 40,0 a20,20 0,1,1 -40,0" />
+    <!-- Mata kiri -->
+    <path android:fillColor="#FFFFFF"
+          android:pathData="M20,24 m-2.5,0 a2.5,2.5 0,1,1 5,0 a2.5,2.5 0,1,1 -5,0" />
+    <path android:fillColor="#784C00"
+          android:pathData="M20,24 m-1.5,0 a1.5,1.5 0,1,1 3,0 a1.5,1.5 0,1,1 -3,0" />
+    <!-- Mata kanan -->
+    <path android:fillColor="#FFFFFF"
+          android:pathData="M34,24 m-2.5,0 a2.5,2.5 0,1,1 5,0 a2.5,2.5 0,1,1 -5,0" />
+    <path android:fillColor="#784C00"
+          android:pathData="M34,24 m-1.5,0 a1.5,1.5 0,1,1 3,0 a1.5,1.5 0,1,1 -3,0" />
+    <!-- Senyum -->
+    <path android:strokeColor="#784C00"
+          android:strokeWidth="2"
+          android:strokeLineCap="round"
+          android:fillColor="#00000000"
+          android:pathData="M20,30 Q27,38 34,30" />
+    <!-- Pipi -->
+    <path android:fillColor="#FBB040"
+          android:alpha="0.5"
+          android:pathData="M16,32 m-3,0 a3,3 0,1,1 6,0 a3,3 0,1,1 -6,0" />
+    <path android:fillColor="#FBB040"
+          android:alpha="0.5"
+          android:pathData="M38,32 m-3,0 a3,3 0,1,1 6,0 a3,3 0,1,1 -6,0" />
+
+    <!-- ══ ANGRY (Kanan Atas) — Merah ══ -->
+    <!-- Lingkaran wajah -->
+    <path android:fillColor="#EF4444"
+          android:pathData="M81,27 m-20,0 a20,20 0,1,1 40,0 a20,20 0,1,1 -40,0" />
+    <!-- Alis marah kiri -->
+    <path android:strokeColor="#FFFFFF"
+          android:strokeWidth="2.5"
+          android:strokeLineCap="round"
+          android:pathData="M70,20 L76,24" />
+    <!-- Alis marah kanan -->
+    <path android:strokeColor="#FFFFFF"
+          android:strokeWidth="2.5"
+          android:strokeLineCap="round"
+          android:pathData="M92,20 L86,24" />
+    <!-- Mata kiri -->
+    <path android:fillColor="#FFFFFF"
+          android:pathData="M74,27 m-2.5,0 a2.5,2.5 0,1,1 5,0 a2.5,2.5 0,1,1 -5,0" />
+    <path android:fillColor="#7F1D1D"
+          android:pathData="M74,27 m-1.5,0 a1.5,1.5 0,1,1 3,0 a1.5,1.5 0,1,1 -3,0" />
+    <!-- Mata kanan -->
+    <path android:fillColor="#FFFFFF"
+          android:pathData="M88,27 m-2.5,0 a2.5,2.5 0,1,1 5,0 a2.5,2.5 0,1,1 -5,0" />
+    <path android:fillColor="#7F1D1D"
+          android:pathData="M88,27 m-1.5,0 a1.5,1.5 0,1,1 3,0 a1.5,1.5 0,1,1 -3,0" />
+    <!-- Mulut cemberut -->
+    <path android:strokeColor="#FFFFFF"
+          android:strokeWidth="2"
+          android:strokeLineCap="round"
+          android:fillColor="#00000000"
+          android:pathData="M74,36 Q81,31 88,36" />
+
+    <!-- ══ SAD (Kiri Bawah) — Biru ══ -->
+    <!-- Lingkaran wajah -->
+    <path android:fillColor="#3B82F6"
+          android:pathData="M27,81 m-20,0 a20,20 0,1,1 40,0 a20,20 0,1,1 -40,0" />
+    <!-- Alis sedih -->
+    <path android:strokeColor="#BFDBFE"
+          android:strokeWidth="2"
+          android:strokeLineCap="round"
+          android:pathData="M19,72 Q22,70 25,72" />
+    <path android:strokeColor="#BFDBFE"
+          android:strokeWidth="2"
+          android:strokeLineCap="round"
+          android:pathData="M29,72 Q32,70 35,72" />
+    <!-- Mata kiri -->
+    <path android:fillColor="#FFFFFF"
+          android:pathData="M20,78 m-2.5,0 a2.5,2.5 0,1,1 5,0 a2.5,2.5 0,1,1 -5,0" />
+    <path android:fillColor="#1E3A8A"
+          android:pathData="M20,78 m-1.5,0 a1.5,1.5 0,1,1 3,0 a1.5,1.5 0,1,1 -3,0" />
+    <!-- Air mata kiri -->
+    <path android:fillColor="#BFDBFE"
+          android:pathData="M20,81 Q19.5,84 20,87 Q20.5,84 21,81 Z" />
+    <!-- Mata kanan -->
+    <path android:fillColor="#FFFFFF"
+          android:pathData="M34,78 m-2.5,0 a2.5,2.5 0,1,1 5,0 a2.5,2.5 0,1,1 -5,0" />
+    <path android:fillColor="#1E3A8A"
+          android:pathData="M34,78 m-1.5,0 a1.5,1.5 0,1,1 3,0 a1.5,1.5 0,1,1 -3,0" />
+    <!-- Mulut sedih -->
+    <path android:strokeColor="#FFFFFF"
+          android:strokeWidth="2"
+          android:strokeLineCap="round"
+          android:fillColor="#00000000"
+          android:pathData="M20,89 Q27,84 34,89" />
+
+    <!-- ══ NEUTRAL (Kanan Bawah) — Abu-abu ══ -->
+    <!-- Lingkaran wajah -->
+    <path android:fillColor="#64748B"
+          android:pathData="M81,81 m-20,0 a20,20 0,1,1 40,0 a20,20 0,1,1 -40,0" />
+    <!-- Mata kiri -->
+    <path android:fillColor="#FFFFFF"
+          android:pathData="M74,78 m-2.5,0 a2.5,2.5 0,1,1 5,0 a2.5,2.5 0,1,1 -5,0" />
+    <path android:fillColor="#1E293B"
+          android:pathData="M74,78 m-1.5,0 a1.5,1.5 0,1,1 3,0 a1.5,1.5 0,1,1 -3,0" />
+    <!-- Mata kanan -->
+    <path android:fillColor="#FFFFFF"
+          android:pathData="M88,78 m-2.5,0 a2.5,2.5 0,1,1 5,0 a2.5,2.5 0,1,1 -5,0" />
+    <path android:fillColor="#1E293B"
+          android:pathData="M88,78 m-1.5,0 a1.5,1.5 0,1,1 3,0 a1.5,1.5 0,1,1 -3,0" />
+    <!-- Mulut lurus/datar -->
+    <path android:strokeColor="#FFFFFF"
+          android:strokeWidth="2.5"
+          android:strokeLineCap="round"
+          android:pathData="M74,87 L88,87" />
+
+    <!-- ══ Garis Silang Tengah (Pembatas 4 Kuadran) ══ -->
+    <path android:strokeColor="#FFFFFF"
+          android:strokeWidth="3"
+          android:alpha="0.3"
+          android:pathData="M54,4 L54,104" />
+    <path android:strokeColor="#FFFFFF"
+          android:strokeWidth="3"
+          android:alpha="0.3"
+          android:pathData="M4,54 L104,54" />
+
+</vector>

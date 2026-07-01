@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- appV1.0 Rev 3 (ic_launcher_background.xml) — Indigo solid background -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Base indigo background -->
+    <path
+        android:fillColor="#6366F1"
+        android:pathData="M0,0h108v108H0z" />
+
+    <!-- Dekorasi lingkaran halus (kedalaman visual) -->
+    <path
+        android:fillColor="#5254CC"
+        android:alpha="0.6"
+        android:pathData="M108,0 m-54,0 a54,54 0,1,1 0,108 a54,54 0,1,1 0,-108" />
+
+    <path
+        android:fillColor="#7577F5"
+        android:alpha="0.4"
+        android:pathData="M0,108 m40,-40 a40,40 0,1,1 80,0 a40,40 0,1,1 -80,0" />
+
+</vector>

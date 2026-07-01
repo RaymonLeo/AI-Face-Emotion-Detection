@@ -1,0 +1,32 @@
+# appV1.0 Rev 3 (rules.keep)
+# R8/ProGuard rules untuk produksi
+
+# ─── TensorFlow Lite ──────────────────────────────────────────────────────────
+-keep class org.tensorflow.** { *; }
+-keep interface org.tensorflow.** { *; }
+-dontwarn org.tensorflow.**
+
+# TFLite Support Library
+-keep class org.tensorflow.lite.support.** { *; }
+-dontwarn org.tensorflow.lite.support.**
+
+# TFLite GPU delegate (opsional, untuk future GPU acceleration)
+-keep class org.tensorflow.lite.gpu.** { *; }
+-dontwarn org.tensorflow.lite.gpu.**
+
+# ─── Gemini AI SDK ────────────────────────────────────────────────────────────
+-keep class com.google.ai.client.generativeai.** { *; }
+-dontwarn com.google.ai.client.generativeai.**
+
+# gRPC (digunakan Gemini SDK)
+-keep class io.grpc.** { *; }
+-dontwarn io.grpc.**
+
+# ─── Kotlinx Serialization (digunakan Gemini SDK) ────────────────────────────
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.AnnotationsKt
+
+# ─── Coroutines ───────────────────────────────────────────────────────────────
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-dontwarn kotlinx.coroutines.**

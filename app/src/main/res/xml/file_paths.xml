@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- appV1.0 Rev 4 (file_paths.xml) — FileProvider paths untuk foto dari kamera -->
+<paths>
+    <cache-path name="captured_images" path="images/" />
+</paths>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- appV1.0 Rev 3 (colors.xml) -->
+<resources>
+    <!-- Brand Colors -->
+    <color name="primary">#6366F1</color>
+    <color name="primary_variant">#4F46E5</color>
+    <color name="secondary">#10B981</color>
+
+    <!-- Background & Surface -->
+    <color name="background">#F8FAFC</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="placeholder_bg">#F1F5F9</color>
+    <color name="card_border">#E2E8F0</color>
+
+    <!-- Text Colors -->
+    <color name="on_background">#1E293B</color>
+    <color name="on_surface">#334155</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_secondary">#FFFFFF</color>
+
+    <!-- Semantic -->
+    <color name="error">#EF4444</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Emotion-Specific Colors -->
+    <color name="color_angry">#EF4444</color>
+    <color name="color_happy">#F59E0B</color>
+    <color name="color_sad">#3B82F6</color>
+    <color name="color_neutral">#64748B</color>
+
+    <!-- Tag/Chip Background -->
+    <color name="tag_bg">#EEF2FF</color>
+</resources>

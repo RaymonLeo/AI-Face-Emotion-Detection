@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- appV1.0 Rev 3 (strings.xml) -->
+<resources>
+    <string name="app_name">AI Emotion Detector</string>
+    <string name="placeholder_text">Pilih foto wajah\nuntuk memulai deteksi</string>
+    <string name="btn_pick_photo">PILIH FOTO WAJAH</string>
+    <string name="btn_ask_ai">✨  MINTA NASIHAT AI</string>
+    <string name="gemini_typing">Gemini sedang mengetik…</string>
+    <string name="ready_to_scan">Ready to Scan</string>
+    <string name="confidence_label">Keyakinan: —</string>
+</resources>
