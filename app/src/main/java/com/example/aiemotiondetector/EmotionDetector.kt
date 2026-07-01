@@ -1,22 +1,26 @@
 package com.example.aiemotiondetector
 
-// appV1.0 Rev 6 (EmotionDetector.kt)
-// Rev 5: Hapus TFLite Support Library, pakai AssetManager + Bitmap API murni.
-// Rev 6: Backend diganti ke LiteRT 1.0.1 (lewat build.gradle.kts) karena
-// tensorflow-lite:2.16.1 tidak mendukung op FULLY_CONNECTED versi 12 yang
-// dipakai model ini. Import tetap org.tensorflow.lite.* (LiteRT backward-compatible).
+// appV1.0 Rev 8 (EmotionDetector.kt)
+// Rev 8: tambah EmotionResult dengan allScores untuk debug display semua 4 kelas
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Log
 import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 
+data class EmotionResult(
+    val label: String,
+    val confidence: Float,
+    val allScores: FloatArray
+)
+
 class EmotionDetector(context: Context) {
 
     private val interpreter: Interpreter
-    private val labels = listOf("ANGRY", "HAPPY", "SAD", "NEUTRAL")
+    val labels = listOf("ANGRY", "HAPPY", "SAD", "NEUTRAL")
 
     init {
         val modelBuffer = loadModelFile(context)
@@ -26,7 +30,6 @@ class EmotionDetector(context: Context) {
         interpreter = Interpreter(modelBuffer, options)
     }
 
-    // Load model langsung dari AssetManager (tanpa FileUtil dari TFLite Support)
     private fun loadModelFile(context: Context): ByteBuffer {
         val assetFD = context.assets.openFd("model_emosi_android.tflite")
         val inputStream = FileInputStream(assetFD.fileDescriptor)
@@ -40,25 +43,21 @@ class EmotionDetector(context: Context) {
         return mappedBuffer
     }
 
-    fun detectEmotion(bitmap: Bitmap): Pair<String, Float> {
-        // Pastikan bitmap ARGB_8888 agar getPixels berfungsi benar di semua device
+    fun detectEmotion(bitmap: Bitmap): EmotionResult {
         val argbBitmap = if (bitmap.config != Bitmap.Config.ARGB_8888) {
             bitmap.copy(Bitmap.Config.ARGB_8888, false)
         } else {
             bitmap
         }
 
-        // Resize ke 224x224 menggunakan Android Bitmap API (bukan TFLite Support)
         val resized = Bitmap.createScaledBitmap(argbBitmap, 224, 224, true)
-
-        // Siapkan ByteBuffer: 1 gambar × 224 × 224 piksel × 3 channel (RGB) × 4 byte (float)
         val byteBuffer = ByteBuffer.allocateDirect(1 * 224 * 224 * 3 * 4)
         byteBuffer.order(ByteOrder.nativeOrder())
 
         val intValues = IntArray(224 * 224)
         resized.getPixels(intValues, 0, 224, 0, 0, 224, 224)
 
-        // Normalisasi ResNetV2: nilai piksel 0-255 → range -1.0 hingga 1.0
+        // Normalisasi ResNetV2: pixel 0-255 → range -1.0 hingga 1.0
         for (pixelValue in intValues) {
             val r = (pixelValue shr 16) and 0xFF
             val g = (pixelValue shr 8) and 0xFF
@@ -68,12 +67,17 @@ class EmotionDetector(context: Context) {
             byteBuffer.putFloat((b / 127.5f) - 1.0f)
         }
 
-        // Jalankan inference TFLite
         val outputBuffer = Array(1) { FloatArray(labels.size) }
         interpreter.run(byteBuffer, outputBuffer)
 
-        // Cari label dengan confidence tertinggi
         val confidences = outputBuffer[0]
+
+        // Log semua 4 score untuk diagnosis — filter logcat dengan tag "EmotionDetector"
+        Log.d("EmotionDetector", buildString {
+            append("RAW SCORES → ")
+            labels.forEachIndexed { i, lbl -> append("$lbl: ${"%.4f".format(confidences[i])}  ") }
+        })
+
         var maxIdx = 0
         var maxConfidence = confidences[0]
         for (i in 1 until confidences.size) {
@@ -83,7 +87,11 @@ class EmotionDetector(context: Context) {
             }
         }
 
-        return Pair(labels[maxIdx], (maxConfidence * 100f).coerceIn(0f, 100f))
+        return EmotionResult(
+            label = labels[maxIdx],
+            confidence = (maxConfidence * 100f).coerceIn(0f, 100f),
+            allScores = confidences.copyOf()
+        )
     }
 
     fun close() = interpreter.close()

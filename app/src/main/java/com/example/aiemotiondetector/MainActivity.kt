@@ -215,7 +215,7 @@ class MainActivity : AppCompatActivity() {
                 val faceBitmap = cropFaceFromBitmap(bitmap)
 
                 // 3. Jalankan inference TFLite pada area wajah yang sudah di-crop
-                val hasil = withContext(Dispatchers.Default) {
+                val hasil: EmotionResult? = withContext(Dispatchers.Default) {
                     emotionDetector?.detectEmotion(faceBitmap)
                 }
 
@@ -327,13 +327,23 @@ class MainActivity : AppCompatActivity() {
 
     // ─── Tampilkan Hasil Deteksi ──────────────────────────────────────────────
 
-    private fun tampilkanHasilDeteksi(hasil: Pair<String, Float>) {
-        currentEmotion = hasil.first
-        val confidence = hasil.second.coerceIn(0f, 100f)
+    private fun tampilkanHasilDeteksi(hasil: EmotionResult) {
+        currentEmotion = hasil.label
+        val confidence = hasil.confidence.coerceIn(0f, 100f)
 
         tvEmotionEmoji.text = getEmotionEmoji(currentEmotion)
         tvHasilEmosi.text = currentEmotion
-        tvConfidenceLabel.text = "Keyakinan: ${String.format("%.1f", confidence)}%"
+
+        // Tampilkan semua 4 skor untuk membantu diagnosis
+        val detector = emotionDetector
+        val scoreText = if (detector != null) {
+            detector.labels.mapIndexed { i, lbl ->
+                "$lbl ${String.format("%.0f", hasil.allScores[i] * 100)}%"
+            }.joinToString(" | ")
+        } else {
+            "Keyakinan: ${String.format("%.1f", confidence)}%"
+        }
+        tvConfidenceLabel.text = scoreText
         progressConfidence.progress = confidence.toInt()
 
         updateEmotionColor(currentEmotion)
