@@ -161,8 +161,8 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
 }
 /* Upload zone */
 .upload-zone {
-  display: none; flex-direction: column; align-items: center; justify-content: center;
-  gap: 14px; background: #000; border-radius: 12px; border: 2px dashed var(--border);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; background: #111; border-radius: 12px; border: 2px dashed var(--border);
   aspect-ratio: 4/3; cursor: pointer; transition: border-color .2s;
 }
 .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); }
@@ -658,10 +658,12 @@ async function processPhoto(file) {
     // Gambar bounding box di atas foto
     if (faceBox) {
       const previewImg = document.getElementById('preview-img');
+      // Tunggu gambar selesai load DAN layout sudah dihitung browser
       await new Promise(r => { if (previewImg.complete) r(); else previewImg.onload = r; });
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       const pc = document.getElementById('preview-canvas');
-      pc.width  = previewImg.offsetWidth;
-      pc.height = previewImg.offsetHeight;
+      pc.width  = previewImg.offsetWidth  || previewImg.naturalWidth;
+      pc.height = previewImg.offsetHeight || previewImg.naturalHeight;
       const scx = pc.width  / faceBox.img_w;
       const scy = pc.height / faceBox.img_h;
       const top = CLASSES[Array.from(scores).reduce((a,v,i)=>v>scores[a]?i:a,0)];
