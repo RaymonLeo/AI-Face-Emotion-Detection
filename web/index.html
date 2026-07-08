@@ -339,17 +339,9 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
     <div class="card gemini-card">
       <div class="gemini-header">
         <span>✨ Gemini AI Advisor</span>
-        <button class="gemini-key-btn" onclick="toggleGeminiKey()" title="Atur API Key">⚙️</button>
       </div>
-      <div class="gemini-key-area" id="gemini-key-area">
-        <input id="gemini-key-input" type="password" placeholder="Masukkan Gemini API Key...">
-        <div class="gemini-key-row">
-          <button onclick="saveGeminiKey()">💾 Simpan</button>
-          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">🔑 Dapat API Key</a>
-        </div>
-      </div>
-      <div id="gemini-text" class="gemini-text gemini-idle">Klik ⚙️ dan masukkan Gemini API Key untuk mengaktifkan saran AI berbasis emosi.</div>
-      <div class="gemini-footer">Powered by Gemini 2.0 Flash · gratis di Google AI Studio</div>
+      <div id="gemini-text" class="gemini-text gemini-idle">Saran AI siap aktif — mulai kamera atau upload foto untuk mendapat respons Gemini.</div>
+      <div class="gemini-footer">Powered by Gemini 2.0 Flash</div>
     </div>
   </div>
 </main>
@@ -378,7 +370,7 @@ function applyBias(raw) {
 }
 
 // ── Gemini AI integration ────────────────────────────────────────────────────
-let geminiKey      = localStorage.getItem('geminiKey') || '';
+let geminiKey      = localStorage.getItem('geminiKey') || 'AQ.Ab8RN6IAqzWpKNQVtWvIfYQ-lqUKBFt8oFeQqsjPvhKVOxaDyw';
 let geminiLastEmo  = '';
 let geminiTimer    = null;
 let geminiCooldown = false;
