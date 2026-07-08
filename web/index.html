@@ -696,7 +696,7 @@ function updateEmoInfo(emo) {
   // Highlight active guide card
   document.querySelectorAll('.guide-card').forEach(c => c.classList.remove('hi-angry','hi-happy','hi-sad','hi-neutral'));
   const gc = document.getElementById('guide-' + emo);
-  if (gc) { gc.classList.add('hi-' + emo); gc.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+  if (gc) gc.classList.add('hi-' + emo);
 }
 
 function captureFrame() {
