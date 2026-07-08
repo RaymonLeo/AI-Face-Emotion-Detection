@@ -139,6 +139,53 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
 .stat-key { color: var(--muted); }
 .stat-val { font-size: 12px; font-weight: 500; }
 .ok { color: #2ECC71; } .err { color: #E74C3C; } .warn { color: #F39C12; }
+/* Gemini AI panel */
+.gemini-card { padding: 16px; }
+.gemini-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.gemini-header span { font-size: 13px; font-weight: 600; }
+.gemini-key-btn {
+  padding: 3px 7px; font-size: 13px; border: none; background: transparent;
+  color: var(--muted); cursor: pointer; border-radius: 6px; line-height: 1;
+}
+.gemini-key-btn:hover { color: var(--accent); background: rgba(88,166,255,.08); }
+.gemini-key-area {
+  display: none; flex-direction: column; gap: 8px; margin-bottom: 12px;
+}
+.gemini-key-area input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 7px 10px; border-radius: 8px;
+  font-size: 12px; outline: none;
+}
+.gemini-key-area input:focus { border-color: var(--accent); }
+.gemini-key-row { display: flex; gap: 8px; }
+.gemini-key-row button { flex: 1; justify-content: center; font-size: 12px; padding: 7px 10px; }
+.gemini-key-row a {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--accent); text-decoration: none;
+  border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+  transition: border-color .15s;
+}
+.gemini-key-row a:hover { border-color: var(--accent); }
+.gemini-text {
+  font-size: 13px; color: var(--text); line-height: 1.7;
+  min-height: 64px; white-space: pre-wrap;
+}
+.gemini-idle { color: var(--muted); }
+.gemini-loading { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.gemini-dot {
+  width: 6px; height: 6px; background: var(--accent);
+  border-radius: 50%; animation: gdot 1s ease-in-out infinite;
+}
+.gemini-dot:nth-child(2) { animation-delay: .15s; }
+.gemini-dot:nth-child(3) { animation-delay: .3s; }
+@keyframes gdot { 0%,100%{opacity:.25;transform:scale(.75)} 50%{opacity:1;transform:scale(1)} }
+.gemini-footer {
+  margin-top: 10px; font-size: 10px; color: var(--muted);
+  border-top: 1px solid var(--border); padding-top: 8px;
+}
 /* No-face message */
 .no-face {
   display: none; position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
@@ -287,6 +334,23 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
         <span class="stat-val" id="st-backend">—</span>
       </div>
     </div>
+
+    <!-- Gemini AI Advisor -->
+    <div class="card gemini-card">
+      <div class="gemini-header">
+        <span>✨ Gemini AI Advisor</span>
+        <button class="gemini-key-btn" onclick="toggleGeminiKey()" title="Atur API Key">⚙️</button>
+      </div>
+      <div class="gemini-key-area" id="gemini-key-area">
+        <input id="gemini-key-input" type="password" placeholder="Masukkan Gemini API Key...">
+        <div class="gemini-key-row">
+          <button onclick="saveGeminiKey()">💾 Simpan</button>
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">🔑 Dapat API Key</a>
+        </div>
+      </div>
+      <div id="gemini-text" class="gemini-text gemini-idle">Klik ⚙️ dan masukkan Gemini API Key untuk mengaktifkan saran AI berbasis emosi.</div>
+      <div class="gemini-footer">Powered by Gemini 2.0 Flash · gratis di Google AI Studio</div>
+    </div>
   </div>
 </main>
 
@@ -311,6 +375,83 @@ function applyBias(raw) {
   const exp = log.map(l => Math.exp(l - mx));
   const sum = exp.reduce((a, b) => a + b, 0);
   return exp.map(s => s / sum);
+}
+
+// ── Gemini AI integration ────────────────────────────────────────────────────
+let geminiKey      = localStorage.getItem('geminiKey') || '';
+let geminiLastEmo  = '';
+let geminiTimer    = null;
+let geminiCooldown = false;
+
+const GEMINI_PROMPTS = {
+  angry:   'Pengguna terdeteksi MARAH. Berikan respons 2-3 kalimat dalam Bahasa Indonesia yang empatik dan menenangkan, dengan saran praktis mengatasi kemarahan. Gunakan emoji relevan. Variasikan pembukaan.',
+  happy:   'Pengguna terdeteksi BAHAGIA. Berikan respons 2-3 kalimat dalam Bahasa Indonesia yang antusias merayakan kebahagiaannya dan membagikan energi positif. Gunakan emoji ceria.',
+  sad:     'Pengguna terdeteksi SEDIH. Berikan respons 2-3 kalimat dalam Bahasa Indonesia yang hangat dan menghibur. Validasi perasaannya dan beri semangat tulus. Gunakan emoji hangat.',
+  neutral: 'Pengguna terdeteksi NETRAL/tenang. Berikan komentar santai atau pertanyaan ringan (2-3 kalimat) dalam Bahasa Indonesia mengajak refleksi positif. Gunakan emoji yang sesuai.',
+};
+
+function toggleGeminiKey() {
+  const area = document.getElementById('gemini-key-area');
+  const isHidden = area.style.display !== 'flex';
+  area.style.display = isHidden ? 'flex' : 'none';
+  if (isHidden && geminiKey) {
+    document.getElementById('gemini-key-input').placeholder = 'Key sudah tersimpan — isi ulang untuk ganti';
+  }
+}
+
+function saveGeminiKey() {
+  const val = document.getElementById('gemini-key-input').value.trim();
+  if (val) {
+    geminiKey = val;
+    localStorage.setItem('geminiKey', val);
+  }
+  document.getElementById('gemini-key-area').style.display = 'none';
+  const el = document.getElementById('gemini-text');
+  el.className = 'gemini-text';
+  el.textContent = '✅ API Key tersimpan! Saran AI akan muncul saat emosi terdeteksi.';
+}
+
+async function callGemini(emotion) {
+  if (!geminiKey) return;
+  geminiCooldown = true;
+  setTimeout(() => { geminiCooldown = false; }, 20000);
+
+  const el = document.getElementById('gemini-text');
+  el.className = 'gemini-text';
+  el.innerHTML = '<div class="gemini-loading"><div class="gemini-dot"></div><div class="gemini-dot"></div><div class="gemini-dot"></div><span>Gemini sedang berpikir...</span></div>';
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: GEMINI_PROMPTS[emotion] }] }],
+          generationConfig: { maxOutputTokens: 130, temperature: 0.9 }
+        })
+      }
+    );
+    const data = await res.json();
+    if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      el.textContent = data.candidates[0].content.parts[0].text;
+    } else if (data.error) {
+      el.textContent = '⚠️ ' + (data.error.message || 'Error dari Gemini API');
+    } else {
+      el.textContent = '⚠️ Respons tidak terbaca dari Gemini';
+    }
+  } catch(e) {
+    el.textContent = '⚠️ Gagal terhubung ke Gemini: ' + e.message;
+  }
+}
+
+function triggerGemini(emotion) {
+  if (!geminiKey || geminiCooldown || emotion === geminiLastEmo) return;
+  clearTimeout(geminiTimer);
+  geminiTimer = setTimeout(() => {
+    geminiLastEmo = emotion;
+    callGemini(emotion);
+  }, 2500);
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -354,6 +495,7 @@ function updateScores(rawScores) {
     document.getElementById('emo-label').style.color = COLOR[top];
     emojiEl.classList.add('pop');
     setTimeout(() => emojiEl.classList.remove('pop'), 300);
+    triggerGemini(top);
   }
   document.getElementById('emo-conf').textContent = (conf * 100).toFixed(1) + '% confidence';
 
