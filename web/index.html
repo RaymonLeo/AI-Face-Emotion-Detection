@@ -721,6 +721,11 @@ function captureFrame() {
     <img src="${snap.toDataURL('image/jpeg', 0.9)}" alt="Snapshot">
     <div class="snap-badge">${EMOJI[top]} ${top.toUpperCase()} — ${(smooth[top]*100).toFixed(0)}%</div>
     <div class="snap-ts">${ts}</div>`;
+
+  // Force Groq comment on capture
+  geminiCooldown = false; geminiLastEmo = '';
+  clearTimeout(geminiTimer);
+  callGemini(top);
 }
 
 const GEMINI_PROMPTS = {
@@ -790,7 +795,7 @@ async function sendChat() {
 
 async function callGemini(emotion) {
   geminiCooldown = true;
-  setTimeout(() => { geminiCooldown = false; }, 20000);
+  setTimeout(() => { geminiCooldown = false; }, 10000);
   await groqChat(GEMINI_PROMPTS[emotion], false);
 }
 
@@ -1160,6 +1165,12 @@ async function processPhoto(file) {
     const adj = applyBias(Array.from(scores));
     smooth = {angry:0, happy:0, sad:0, neutral:0};
     updateScores(adj);
+
+    // Force Groq untuk foto — bypass cooldown & same-emotion check
+    const photoTop = CLASSES[adj.reduce((a,v,i)=>v>adj[a]?i:a,0)];
+    geminiCooldown = false; geminiLastEmo = '';
+    clearTimeout(geminiTimer);
+    callGemini(photoTop);
 
     // Tampilkan gambar + box
     const zone = document.getElementById('upload-zone');
