@@ -186,6 +186,40 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
   margin-top: 10px; font-size: 10px; color: var(--muted);
   border-top: 1px solid var(--border); padding-top: 8px;
 }
+/* Chat */
+.chat-history {
+  height: 190px; overflow-y: auto; display: flex;
+  flex-direction: column; gap: 8px; padding: 4px 0;
+  margin-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.chat-history::-webkit-scrollbar { width: 4px; }
+.chat-history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.chat-msg {
+  max-width: 88%; padding: 8px 11px; border-radius: 12px;
+  font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+}
+.chat-msg.ai {
+  background: var(--surface2); border: 1px solid var(--border);
+  align-self: flex-start; border-bottom-left-radius: 4px; color: var(--text);
+}
+.chat-msg.user {
+  background: rgba(88,166,255,.14); border: 1px solid rgba(88,166,255,.3);
+  color: var(--accent2); align-self: flex-end; border-bottom-right-radius: 4px;
+}
+.chat-msg.typing { color: var(--muted); font-style: italic; }
+.chat-input-row { display: flex; gap: 8px; }
+.chat-input-row input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 11px; border-radius: 8px;
+  font-size: 13px; outline: none;
+}
+.chat-input-row input:focus { border-color: var(--accent); }
+.chat-input-row button {
+  padding: 8px 14px; background: var(--accent); border: none;
+  color: #0d1117; font-weight: 700; border-radius: 8px;
+  cursor: pointer; font-size: 16px; line-height: 1;
+}
+.chat-input-row button:hover { background: var(--accent2); }
 /* No-face message */
 .no-face {
   display: none; position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
@@ -340,7 +374,12 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
       <div class="gemini-header">
         <span>✨ Groq AI Advisor</span>
       </div>
-      <div id="gemini-text" class="gemini-text gemini-idle">Saran AI siap aktif — mulai kamera atau upload foto untuk mendapat respons Groq.</div>
+      <div id="chat-history" class="chat-history"></div>
+      <div class="chat-input-row">
+        <input id="chat-input" type="text" placeholder="Tanya sesuatu ke Groq AI..."
+               onkeydown="if(event.key==='Enter')sendChat()">
+        <button onclick="sendChat()">➤</button>
+      </div>
       <div class="gemini-footer">Powered by Groq · Llama 3.1 8B Instant</div>
     </div>
   </div>
@@ -383,35 +422,27 @@ const GEMINI_PROMPTS = {
   neutral: 'Pengguna terdeteksi NETRAL/tenang. Berikan komentar santai atau pertanyaan ringan (2-3 kalimat) dalam Bahasa Indonesia mengajak refleksi positif. Gunakan emoji yang sesuai.',
 };
 
-function toggleGeminiKey() {
-  const area = document.getElementById('gemini-key-area');
-  const isHidden = area.style.display !== 'flex';
-  area.style.display = isHidden ? 'flex' : 'none';
-  if (isHidden && geminiKey) {
-    document.getElementById('gemini-key-input').placeholder = 'Key sudah tersimpan — isi ulang untuk ganti';
-  }
+// Multi-turn chat history
+let chatHistory = [];
+const SYS_PROMPT = 'Kamu adalah asisten AI ramah yang bisa melihat emosi wajah pengguna secara real-time. Berikan respons singkat (2-3 kalimat) dan supportif dalam Bahasa Indonesia dengan emoji yang sesuai.';
+
+function appendMsg(role, text) {
+  const el = document.createElement('div');
+  el.className = 'chat-msg ' + (role === 'user' ? 'user' : 'ai');
+  el.textContent = text;
+  const box = document.getElementById('chat-history');
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+  return el;
 }
 
-function saveGeminiKey() {
-  const val = document.getElementById('gemini-key-input').value.trim();
-  if (val) {
-    geminiKey = val;
-    localStorage.setItem('geminiKey', val);
-  }
-  document.getElementById('gemini-key-area').style.display = 'none';
-  const el = document.getElementById('gemini-text');
-  el.className = 'gemini-text';
-  el.textContent = '✅ API Key tersimpan! Saran AI akan muncul saat emosi terdeteksi.';
-}
+async function groqChat(content, showBubble = true) {
+  if (!_K) return;
+  if (showBubble) appendMsg('user', content);
+  chatHistory.push({ role: 'user', content });
 
-async function callGemini(emotion) {
-  if (!geminiKey) return;
-  geminiCooldown = true;
-  setTimeout(() => { geminiCooldown = false; }, 20000);
-
-  const el = document.getElementById('gemini-text');
-  el.className = 'gemini-text';
-  el.innerHTML = '<div class="gemini-loading"><div class="gemini-dot"></div><div class="gemini-dot"></div><div class="gemini-dot"></div><span>AI sedang berpikir...</span></div>';
+  const typing = appendMsg('ai', 'mengetik...');
+  typing.classList.add('typing');
 
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -419,22 +450,40 @@ async function callGemini(emotion) {
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _K },
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
-        messages: [{ role: 'user', content: GEMINI_PROMPTS[emotion] }],
+        messages: [{ role: 'system', content: SYS_PROMPT }, ...chatHistory.slice(-8)],
         max_tokens: 150,
         temperature: 0.9
       })
     });
     const data = await res.json();
-    if (data.choices?.[0]?.message?.content) {
-      el.textContent = data.choices[0].message.content;
-    } else if (data.error) {
-      el.textContent = '⚠️ ' + (data.error.message || 'Error dari Groq API');
+    const reply = data.choices?.[0]?.message?.content;
+    if (reply) {
+      typing.textContent = reply;
+      chatHistory.push({ role: 'assistant', content: reply });
     } else {
-      el.textContent = '⚠️ Respons tidak terbaca dari Groq';
+      typing.textContent = '⚠️ ' + (data.error?.message || 'Tidak ada respons dari Groq');
+      chatHistory.pop();
     }
   } catch(e) {
-    el.textContent = '⚠️ Gagal terhubung ke Groq: ' + e.message;
+    typing.textContent = '⚠️ Gagal: ' + e.message;
+    chatHistory.pop();
   }
+  typing.classList.remove('typing');
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  input.focus();
+  await groqChat(msg, true);
+}
+
+async function callGemini(emotion) {
+  geminiCooldown = true;
+  setTimeout(() => { geminiCooldown = false; }, 20000);
+  await groqChat(GEMINI_PROMPTS[emotion], false);
 }
 
 function triggerGemini(emotion) {
