@@ -1,0 +1,5 @@
+*.bin binary
+*.weights binary
+*.tflite binary
+*.keras binary
+*.h5 binary

@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Emotion Detector</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
+  --border: #30363d; --accent: #58a6ff; --accent2: #79c0ff;
+  --text: #e6edf3; --muted: #8b949e;
+  --angry: #E74C3C; --happy: #2ECC71; --sad: #3498DB; --neutral: #95A5A6;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh; display: flex; flex-direction: column;
+}
+/* ── Loading overlay ────────────────────────────────────────── */
+#overlay {
+  position: fixed; inset: 0; z-index: 999;
+  background: rgba(13,17,23,0.95); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+}
+.overlay-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 40px 36px; text-align: center;
+  width: 380px; max-width: 92vw;
+}
+.spinner {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  animation: spin .8s linear infinite; margin: 0 auto 18px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.overlay-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.overlay-msg { font-size: 13px; color: var(--muted); line-height: 1.6; }
+.picker-area { display: none; margin-top: 20px; flex-direction: column; gap: 10px; }
+.picker-area.show { display: flex; }
+.picker-hint {
+  font-size: 12px; color: var(--muted); text-align: left; line-height: 1.7;
+  background: var(--surface2); padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.picker-hint code { color: var(--accent); font-size: 11px; }
+/* ── Header ─────────────────────────────────────────────────── */
+header {
+  padding: 14px 24px; border-bottom: 1px solid var(--border);
+  background: var(--surface); display: flex; align-items: center; gap: 12px;
+  position: sticky; top: 0; z-index: 10;
+}
+header h1 { font-size: 18px; font-weight: 600; }
+.badge {
+  font-size: 11px; padding: 2px 9px; border-radius: 20px;
+  background: rgba(88,166,255,.12); color: var(--accent);
+  border: 1px solid rgba(88,166,255,.25);
+}
+.fps-chip {
+  margin-left: auto; font-size: 12px; color: var(--muted);
+  background: var(--surface2); padding: 3px 10px; border-radius: 20px;
+  border: 1px solid var(--border);
+}
+/* ── Main layout ────────────────────────────────────────────── */
+main {
+  flex: 1; display: grid; grid-template-columns: 1fr 360px;
+  gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%;
+}
+@media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+/* ── Camera ─────────────────────────────────────────────────── */
+.cam-section { display: flex; flex-direction: column; gap: 14px; }
+.cam-wrap {
+  position: relative; background: #000; border-radius: 12px;
+  overflow: hidden; border: 1px solid var(--border);
+  aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center;
+}
+#video {
+  width: 100%; height: 100%; object-fit: cover;
+  transform: scaleX(-1); display: none;
+}
+#canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+}
+.cam-placeholder {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; color: var(--muted); font-size: 14px;
+}
+.cam-placeholder .ico { font-size: 48px; opacity: .5; }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; }
+/* ── Buttons ─────────────────────────────────────────────────── */
+button {
+  padding: 9px 18px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text); font-size: 13px;
+  cursor: pointer; display: flex; align-items: center; gap: 7px;
+  transition: border-color .15s, background .15s; white-space: nowrap;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary {
+  background: var(--accent); border-color: var(--accent);
+  color: #0d1117; font-weight: 600;
+}
+button.primary:hover { background: var(--accent2); border-color: var(--accent2); }
+/* ── Emotion panel ───────────────────────────────────────────── */
+.emo-section { display: flex; flex-direction: column; gap: 14px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+}
+/* Big emotion display */
+.emo-main { text-align: center; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+.emo-emoji {
+  font-size: 68px; line-height: 1; display: block; margin-bottom: 10px;
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+}
+.emo-emoji.pop { transform: scale(1.25); }
+.emo-label {
+  font-size: 24px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+  transition: color .3s;
+}
+.emo-conf { font-size: 14px; color: var(--muted); margin-top: 4px; }
+/* Bars */
+.emo-bars { display: flex; flex-direction: column; gap: 11px; }
+.bar-row { display: flex; flex-direction: column; gap: 5px; }
+.bar-header { display: flex; justify-content: space-between; font-size: 13px; }
+.bar-name { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.bar-pct { font-weight: 600; font-size: 13px; color: var(--muted); transition: color .3s; }
+.bar-track {
+  height: 7px; background: rgba(255,255,255,.06); border-radius: 4px; overflow: hidden;
+}
+.bar-fill { height: 100%; border-radius: 4px; width: 0%; transition: width .3s ease; }
+/* Status card */
+.stat-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--border);
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-key { color: var(--muted); }
+.stat-val { font-size: 12px; font-weight: 500; }
+.ok { color: #2ECC71; } .err { color: #E74C3C; } .warn { color: #F39C12; }
+/* No-face message */
+.no-face {
+  display: none; position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,.6); color: var(--muted); font-size: 12px;
+  padding: 6px 14px; border-radius: 20px; backdrop-filter: blur(4px);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+/* Mode tabs */
+.mode-tabs {
+  display: flex; gap: 6px; margin-bottom: 4px;
+}
+.tab-btn {
+  flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--muted); font-size: 13px;
+  cursor: pointer; text-align: center; transition: all .15s;
+}
+.tab-btn.active {
+  background: rgba(88,166,255,.12); color: var(--accent);
+  border-color: rgba(88,166,255,.4);
+}
+/* Upload zone */
+.upload-zone {
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; background: #000; border-radius: 12px; border: 2px dashed var(--border);
+  aspect-ratio: 4/3; cursor: pointer; transition: border-color .2s;
+}
+.upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); }
+.upload-zone.has-image { border-style: solid; cursor: default; padding: 0; overflow: hidden; }
+.upload-preview {
+  position: relative; width: 100%; height: 100%;
+}
+.upload-preview img {
+  width: 100%; height: 100%; object-fit: contain; display: block;
+}
+.upload-preview canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+}
+</style>
+</head>
+<body>
+
+<!-- ── Loading overlay ─────────────────────────────────────── -->
+<div id="overlay">
+  <div class="overlay-box">
+    <div class="spinner"></div>
+    <div class="overlay-title">AI Emotion Detector</div>
+    <div class="overlay-msg" id="overlay-msg">Menginisialisasi TensorFlow.js...</div>
+    <div class="picker-area" id="picker-area">
+      <div class="picker-hint">
+        Model tidak ditemukan di <code>model/model.json</code>.<br>
+        Pilih <strong>semua file</strong> hasil export TF.js dari notebook<br>
+        (<code>model.json</code> + semua <code>*.bin</code>):
+      </div>
+      <input type="file" id="file-input" multiple accept=".json,.bin" style="display:none">
+      <button onclick="document.getElementById('file-input').click()">📂 Pilih File Model</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<header>
+  <span style="font-size:22px">🎭</span>
+  <h1>AI Emotion Detector</h1>
+  <span class="badge">ResNet50V2 · FER2013</span>
+  <span class="fps-chip" id="fps-chip">FPS: --</span>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────── -->
+<main>
+  <!-- Kamera -->
+  <div class="cam-section">
+    <!-- Mode tabs -->
+    <div class="mode-tabs">
+      <button class="tab-btn active" id="tab-live" onclick="setMode('live')">📷 Live Kamera</button>
+      <button class="tab-btn" id="tab-upload" onclick="setMode('upload')">🖼️ Upload Foto</button>
+    </div>
+
+    <!-- Live mode -->
+    <div id="live-section">
+      <div class="cam-wrap" id="cam-wrap">
+        <div class="cam-placeholder" id="placeholder">
+          <span class="ico">📷</span>
+          <span>Klik "Mulai Kamera" untuk deteksi emosi real-time</span>
+        </div>
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+        <div class="no-face" id="no-face">Wajah tidak terdeteksi</div>
+      </div>
+      <div class="controls">
+        <button class="primary" id="btn-cam" onclick="toggleCamera()">📷 Mulai Kamera</button>
+        <button onclick="clearCache()" title="Hapus cache model dari IndexedDB browser">🗑️ Hapus Cache</button>
+      </div>
+    </div>
+
+    <!-- Upload mode -->
+    <div id="upload-section" style="display:none">
+      <div class="upload-zone" id="upload-zone" onclick="triggerUpload()">
+        <span style="font-size:48px;opacity:.4">🖼️</span>
+        <span style="color:var(--muted);font-size:14px">Klik atau drag foto ke sini</span>
+        <span style="color:var(--muted);font-size:12px">JPG, PNG, WEBP</span>
+      </div>
+      <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="processPhoto(this.files[0])">
+      <div class="controls" style="margin-top:10px">
+        <button class="primary" onclick="triggerUpload()">🖼️ Pilih Foto</button>
+        <button onclick="resetUpload()">🔄 Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel emosi -->
+  <div class="emo-section">
+    <!-- Emosi utama + bar -->
+    <div class="card">
+      <div class="emo-main">
+        <span class="emo-emoji" id="emo-emoji" data-emo="neutral">😐</span>
+        <div class="emo-label" id="emo-label" style="color:var(--neutral)">NEUTRAL</div>
+        <div class="emo-conf" id="emo-conf">—</div>
+      </div>
+      <div class="emo-bars" id="emo-bars"></div>
+    </div>
+
+    <!-- Status -->
+    <div class="card">
+      <div class="stat-row">
+        <span class="stat-key">Model Emosi</span>
+        <span class="stat-val warn" id="st-model">Memuat...</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Face Detector</span>
+        <span class="stat-val warn" id="st-face">Memuat...</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Kamera</span>
+        <span class="stat-val" id="st-cam">Belum aktif</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Wajah Terdeteksi</span>
+        <span class="stat-val" id="st-faces">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Waktu Inferensi</span>
+        <span class="stat-val" id="st-infer">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Backend TF.js</span>
+        <span class="stat-val" id="st-backend">—</span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── Konstanta ────────────────────────────────────────────────────────────────
+const CLASSES = ['angry','happy','sad','neutral'];
+const EMOJI   = {angry:'😠', happy:'😊', sad:'😢', neutral:'😐'};
+const COLOR   = {angry:'#E74C3C', happy:'#2ECC71', sad:'#3498DB', neutral:'#95A5A6'};
+const IMG     = 224;
+const PAD     = 0.12;    // padding sekitar face crop (12%)
+const SMOOTH  = 0.22;    // EMA smoothing factor
+const FREQ    = 140;     // ms antara inferensi
+const CACHE   = 'indexeddb://emo-model-v2'; // model_4 (74.02%)
+
+// ── State ────────────────────────────────────────────────────────────────────
+let emoModel = null, faceModel = null, stream = null, running = false;
+let smooth   = {angry:0, happy:0, sad:0, neutral:0};
+let lastInfer = 0, fCount = 0, fTimer = Date.now(), fps = 0;
+
+const video  = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+
+// ── Build emotion bars ───────────────────────────────────────────────────────
+(function buildBars() {
+  document.getElementById('emo-bars').innerHTML = CLASSES.map(e => `
+    <div class="bar-row">
+      <div class="bar-header">
+        <span class="bar-name"><span>${EMOJI[e]}</span><span>${e[0].toUpperCase()+e.slice(1)}</span></span>
+        <span class="bar-pct" id="pct-${e}" style="color:${COLOR[e]}">0.0%</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="bar-${e}" style="background:${COLOR[e]}"></div>
+      </div>
+    </div>`).join('');
+})();
+
+// ── Update UI scores ─────────────────────────────────────────────────────────
+function updateScores(rawScores) {
+  CLASSES.forEach((e, i) => {
+    smooth[e] = smooth[e] * (1 - SMOOTH) + rawScores[i] * SMOOTH;
+  });
+  const top = CLASSES.reduce((a, e) => smooth[e] > smooth[a] ? e : a, CLASSES[0]);
+  const conf = smooth[top];
+
+  // Big display
+  const emojiEl = document.getElementById('emo-emoji');
+  if (emojiEl.dataset.emo !== top) {
+    emojiEl.textContent = EMOJI[top];
+    emojiEl.dataset.emo = top;
+    emojiEl.style.color = COLOR[top];
+    document.getElementById('emo-label').textContent = top.toUpperCase();
+    document.getElementById('emo-label').style.color = COLOR[top];
+    emojiEl.classList.add('pop');
+    setTimeout(() => emojiEl.classList.remove('pop'), 300);
+  }
+  document.getElementById('emo-conf').textContent = (conf * 100).toFixed(1) + '% confidence';
+
+  // Bars
+  CLASSES.forEach(e => {
+    const pct = smooth[e] * 100;
+    document.getElementById(`pct-${e}`).textContent = pct.toFixed(1) + '%';
+    document.getElementById(`bar-${e}`).style.width = pct.toFixed(1) + '%';
+  });
+}
+
+// ── Gambar bounding box ──────────────────────────────────────────────────────
+function drawBox(x1, y1, x2, y2, topEmo) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const sx = canvas.width / vw, sy = canvas.height / vh;
+  const col = COLOR[topEmo] || '#58a6ff';
+
+  // Konversi koordinat: canvas di-mirror CSS, flip x
+  const bx = (vw - x2) * sx, by = y1 * sy;
+  const bw = (x2 - x1) * sx, bh = (y2 - y1) * sy;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Glow box
+  ctx.save();
+  ctx.shadowColor = col; ctx.shadowBlur = 14;
+  ctx.strokeStyle = col; ctx.lineWidth = 2;
+  ctx.strokeRect(bx, by, bw, bh);
+  ctx.restore();
+
+  // Corner accents
+  const cs = 16;
+  ctx.strokeStyle = col; ctx.lineWidth = 3.5;
+  [
+    [[bx,by+cs],[bx,by],[bx+cs,by]],
+    [[bx+bw-cs,by],[bx+bw,by],[bx+bw,by+cs]],
+    [[bx,by+bh-cs],[bx,by+bh],[bx+cs,by+bh]],
+    [[bx+bw-cs,by+bh],[bx+bw,by+bh],[bx+bw,by+bh-cs]],
+  ].forEach(([p1,p2,p3]) => {
+    ctx.beginPath();
+    ctx.moveTo(...p1); ctx.lineTo(...p2); ctx.lineTo(...p3);
+    ctx.stroke();
+  });
+
+  // Label emosi di atas box
+  const txt = `${EMOJI[topEmo]} ${topEmo.toUpperCase()} ${(smooth[topEmo]*100).toFixed(0)}%`;
+  ctx.font = 'bold 14px system-ui';
+  const tw = ctx.measureText(txt).width;
+  ctx.fillStyle = col;
+  ctx.fillRect(bx - 1, by - 28, tw + 16, 24);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(txt, bx + 7, by - 10);
+}
+
+// ── Crop & preprocess wajah ───────────────────────────────────────────────────
+function cropFace(x1, y1, x2, y2) {
+  return tf.tidy(() => {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const fw = x2 - x1, fh = y2 - y1;
+    const px = fw * PAD, py = fh * PAD;
+    const cx = Math.max(0, x1 - px), cy = Math.max(0, y1 - py);
+    const cw = Math.min(vw - cx, fw + 2*px), ch = Math.min(vh - cy, fh + 2*py);
+
+    const tmp = document.createElement('canvas');
+    tmp.width = IMG; tmp.height = IMG;
+    tmp.getContext('2d').drawImage(video, cx, cy, cw, ch, 0, 0, IMG, IMG);
+
+    return tf.browser.fromPixels(tmp)
+      .cast('float32').div(127.5).sub(1.0).expandDims(0);
+  });
+}
+
+// ── Loop utama inferensi ──────────────────────────────────────────────────────
+async function loop() {
+  if (!running) return;
+
+  // FPS counter
+  fCount++;
+  const now = Date.now();
+  if (now - fTimer >= 1000) {
+    fps = Math.round(fCount * 1000 / (now - fTimer));
+    fCount = 0; fTimer = now;
+    document.getElementById('fps-chip').textContent = `FPS: ${fps}`;
+  }
+
+  if (now - lastInfer >= FREQ && emoModel && faceModel && video.readyState === 4) {
+    lastInfer = now;
+    try {
+      const faces = await faceModel.estimateFaces(video, false);
+      const noFaceEl = document.getElementById('no-face');
+
+      if (faces.length > 0) {
+        noFaceEl.style.display = 'none';
+        document.getElementById('st-faces').textContent = `${faces.length} wajah`;
+
+        const [tx, ty] = faces[0].topLeft;
+        const [bx, by] = faces[0].bottomRight;
+
+        const t0 = performance.now();
+        const tensor = cropFace(tx, ty, bx, by);
+        const pred   = emoModel.predict(tensor);
+        const scores = await pred.data();
+        pred.dispose(); tensor.dispose();
+
+        const ms = Math.round(performance.now() - t0);
+        document.getElementById('st-infer').textContent = `${ms} ms`;
+        updateScores(Array.from(scores));
+        drawBox(tx, ty, bx, by, CLASSES[Array.from(scores).reduce((a,v,i)=>v>scores[a]?i:a,0)]);
+      } else {
+        document.getElementById('st-faces').textContent = 'Tidak ada';
+        noFaceEl.style.display = 'block';
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    } catch(e) { console.error('Inference error:', e); }
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ── Kamera ────────────────────────────────────────────────────────────────────
+async function toggleCamera() {
+  const btn = document.getElementById('btn-cam');
+  if (running) {
+    running = false;
+    stream?.getTracks().forEach(t => t.stop());
+    stream = null;
+    video.style.display = 'none';
+    document.getElementById('placeholder').style.display = 'flex';
+    btn.textContent = '📷 Mulai Kamera'; btn.classList.remove('primary');
+    document.getElementById('st-cam').textContent = 'Tidak aktif';
+    document.getElementById('st-cam').className = 'stat-val';
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+  btn.textContent = '⏳ Membuka...'; btn.disabled = true;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:'user', width:{ideal:640}, height:{ideal:480} }
+    });
+    video.srcObject = stream;
+    await new Promise(r => { video.onloadedmetadata = r; });
+    video.play();
+    video.style.display = 'block';
+    document.getElementById('placeholder').style.display = 'none';
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    document.getElementById('st-cam').textContent = `Aktif (${video.videoWidth}×${video.videoHeight})`;
+    document.getElementById('st-cam').className = 'stat-val ok';
+    running = true;
+    btn.textContent = '⏹️ Hentikan'; btn.classList.add('primary'); btn.disabled = false;
+    loop();
+  } catch(e) {
+    document.getElementById('st-cam').textContent = 'Error: ' + e.message;
+    document.getElementById('st-cam').className = 'stat-val err';
+    btn.textContent = '📷 Mulai Kamera'; btn.disabled = false;
+  }
+}
+
+// ── Load model ────────────────────────────────────────────────────────────────
+function setMsg(msg) { document.getElementById('overlay-msg').textContent = msg; }
+
+async function loadEmoModel() {
+  // 1. IndexedDB cache
+  try {
+    setMsg('Memeriksa cache browser...');
+    emoModel = await tf.loadLayersModel(CACHE);
+    document.getElementById('st-model').textContent = 'Loaded (cache) ✓';
+    document.getElementById('st-model').className = 'stat-val ok';
+    return true;
+  } catch(e1) {
+    console.log('Cache miss:', e1.message);
+  }
+
+  // 2. model/model.json di server lokal
+  try {
+    setMsg('Memuat model dari server (96 MB)...');
+    emoModel = await tf.loadLayersModel('model/model.json');
+    setMsg('Menyimpan ke cache browser...');
+    await emoModel.save(CACHE);
+    document.getElementById('st-model').textContent = 'Loaded ✓';
+    document.getElementById('st-model').className = 'stat-val ok';
+    return true;
+  } catch(e2) {
+    console.error('Model load error:', e2);
+    setMsg('Gagal load otomatis: ' + e2.message + '\n\nJika IDM aktif: buka IDM → File Types → hapus "bin" dari daftar. Atau pilih file manual:');
+    document.getElementById('st-model').textContent = 'Error: ' + e2.message.slice(0,40);
+    document.getElementById('st-model').className = 'stat-val err';
+  }
+
+  return false;  // butuh file picker
+}
+
+async function loadFromFiles(files) {
+  const json = Array.from(files).find(f => f.name.endsWith('.json'));
+  const bins = Array.from(files).filter(f => f.name.endsWith('.bin'));
+  if (!json) { setMsg('Tidak ada file .json ditemukan!'); return; }
+  setMsg('Memuat model dari file...');
+  try {
+    emoModel = await tf.loadLayersModel(tf.io.browserFiles([json, ...bins]));
+    await emoModel.save(CACHE);
+    // Warm up
+    const dummy = tf.zeros([1, IMG, IMG, 3]);
+    emoModel.predict(dummy).dispose(); dummy.dispose();
+    document.getElementById('st-model').textContent = 'Loaded ✓';
+    document.getElementById('st-model').className = 'stat-val ok';
+    hideOverlay();
+  } catch(e) {
+    setMsg('Gagal memuat: ' + e.message);
+  }
+}
+
+async function clearCache() {
+  try {
+    await tf.io.removeModel(CACHE);
+    alert('Cache berhasil dihapus. Refresh halaman untuk muat ulang.');
+  } catch(_) { alert('Tidak ada cache yang ditemukan.'); }
+}
+
+function hideOverlay() { document.getElementById('overlay').style.display = 'none'; }
+
+// ── File picker handler ───────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => loadFromFiles(e.target.files));
+
+// ── Mode switching ────────────────────────────────────────────────────────────
+function setMode(mode) {
+  document.getElementById('tab-live').classList.toggle('active', mode === 'live');
+  document.getElementById('tab-upload').classList.toggle('active', mode === 'upload');
+  document.getElementById('live-section').style.display   = mode === 'live'   ? '' : 'none';
+  document.getElementById('upload-section').style.display = mode === 'upload' ? '' : 'none';
+  if (mode === 'live' && !running) {
+    // stop camera hanya jika sedang jalan
+  }
+  if (mode === 'upload' && running) {
+    running = false;
+    stream?.getTracks().forEach(t => t.stop());
+    stream = null;
+    video.style.display = 'none';
+    document.getElementById('placeholder').style.display = 'flex';
+    document.getElementById('btn-cam').textContent = '📷 Mulai Kamera';
+    document.getElementById('btn-cam').classList.remove('primary');
+    document.getElementById('st-cam').textContent = 'Tidak aktif';
+  }
+}
+
+// ── Upload photo mode ─────────────────────────────────────────────────────────
+function triggerUpload() { document.getElementById('photo-input').click(); }
+
+function resetUpload() {
+  const zone = document.getElementById('upload-zone');
+  zone.innerHTML = `
+    <span style="font-size:48px;opacity:.4">🖼️</span>
+    <span style="color:var(--muted);font-size:14px">Klik atau drag foto ke sini</span>
+    <span style="color:var(--muted);font-size:12px">JPG, PNG, WEBP</span>`;
+  zone.classList.remove('has-image');
+  document.getElementById('photo-input').value = '';
+  smooth = {angry:0, happy:0, sad:0, neutral:0};
+  updateScores([0,0,0,0]);
+}
+
+async function processPhoto(file) {
+  if (!file || !emoModel) return;
+  const url = URL.createObjectURL(file);
+  const img  = new Image();
+  img.onload = async () => {
+    // Setup canvas
+    const offscreen = document.createElement('canvas');
+    offscreen.width = img.naturalWidth; offscreen.height = img.naturalHeight;
+    const octx = offscreen.getContext('2d');
+    octx.drawImage(img, 0, 0);
+
+    // BlazeFace face detection pada gambar statis
+    let cropImg = offscreen;
+    let faceBox = null;
+    if (faceModel) {
+      try {
+        const imgTensor = tf.browser.fromPixels(offscreen);
+        const faces = await faceModel.estimateFaces(imgTensor, false);
+        imgTensor.dispose();
+        if (faces.length > 0) {
+          const [tx, ty] = faces[0].topLeft;
+          const [bx, by] = faces[0].bottomRight;
+          const fw = bx - tx, fh = by - ty;
+          const px = fw * PAD, py = fh * PAD;
+          const cx = Math.max(0, tx - px), cy = Math.max(0, ty - py);
+          const cw = Math.min(img.naturalWidth - cx, fw + 2*px);
+          const ch = Math.min(img.naturalHeight - cy, fh + 2*py);
+          cropImg = document.createElement('canvas');
+          cropImg.width = cw; cropImg.height = ch;
+          cropImg.getContext('2d').drawImage(offscreen, cx, cy, cw, ch, 0, 0, cw, ch);
+          faceBox = {tx, ty, bx, by, img_w: img.naturalWidth, img_h: img.naturalHeight};
+        }
+      } catch(e) { console.warn('Face detect on photo failed:', e); }
+    }
+
+    // Preprocess & predict
+    const scores = await tf.tidy(() => {
+      const t = tf.browser.fromPixels(cropImg)
+        .resizeBilinear([IMG, IMG])
+        .cast('float32').div(127.5).sub(1.0).expandDims(0);
+      return emoModel.predict(t);
+    }).data();
+
+    smooth = {angry:0, happy:0, sad:0, neutral:0};
+    updateScores(Array.from(scores));
+
+    // Tampilkan gambar + box
+    const zone = document.getElementById('upload-zone');
+    zone.classList.add('has-image');
+    zone.innerHTML = `<div class="upload-preview">
+      <img id="preview-img" src="${url}" style="max-height:420px;width:100%;object-fit:contain">
+      <canvas id="preview-canvas"></canvas>
+    </div>`;
+
+    // Gambar bounding box di atas foto
+    if (faceBox) {
+      const previewImg = document.getElementById('preview-img');
+      await new Promise(r => { if (previewImg.complete) r(); else previewImg.onload = r; });
+      const pc = document.getElementById('preview-canvas');
+      pc.width  = previewImg.offsetWidth;
+      pc.height = previewImg.offsetHeight;
+      const scx = pc.width  / faceBox.img_w;
+      const scy = pc.height / faceBox.img_h;
+      const top = CLASSES[Array.from(scores).reduce((a,v,i)=>v>scores[a]?i:a,0)];
+      const col = COLOR[top];
+      const pctx = pc.getContext('2d');
+      const bx = faceBox.tx * scx, by = faceBox.ty * scy;
+      const bw = (faceBox.bx - faceBox.tx) * scx, bh = (faceBox.by - faceBox.ty) * scy;
+      pctx.shadowColor = col; pctx.shadowBlur = 14;
+      pctx.strokeStyle = col; pctx.lineWidth = 2;
+      pctx.strokeRect(bx, by, bw, bh);
+      pctx.shadowBlur = 0;
+      const txt = `${EMOJI[top]} ${top.toUpperCase()} ${(scores[CLASSES.indexOf(top)]*100).toFixed(0)}%`;
+      pctx.font = 'bold 14px system-ui';
+      const tw = pctx.measureText(txt).width;
+      pctx.fillStyle = col; pctx.fillRect(bx-1, by-28, tw+16, 24);
+      pctx.fillStyle = '#fff'; pctx.fillText(txt, bx+7, by-10);
+    }
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+// Drag-and-drop untuk upload zone
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) processPhoto(file);
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(async function init() {
+  document.getElementById('st-backend').textContent = tf.getBackend() || 'detecting...';
+
+  const [modelOk] = await Promise.all([
+    loadEmoModel(),
+    (async () => {
+      setMsg('Memuat BlazeFace face detector...');
+      faceModel = await blazeface.load();
+      document.getElementById('st-face').textContent = 'Loaded ✓';
+      document.getElementById('st-face').className = 'stat-val ok';
+    })()
+  ]);
+
+  document.getElementById('st-backend').textContent = tf.getBackend();
+
+  if (modelOk) {
+    // Warm up model
+    setMsg('Warming up model...');
+    const dummy = tf.zeros([1, IMG, IMG, 3]);
+    emoModel.predict(dummy).dispose(); dummy.dispose();
+    hideOverlay();
+  } else {
+    setMsg('Pilih file model TF.js yang di-export dari notebook:');
+    document.getElementById('picker-area').classList.add('show');
+  }
+})();
+</script>
+</body>
+</html>
