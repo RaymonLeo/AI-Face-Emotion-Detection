@@ -301,6 +301,18 @@ const SMOOTH  = 0.22;    // EMA smoothing factor
 const FREQ    = 140;     // ms antara inferensi
 const CACHE   = 'indexeddb://emo-model-v2'; // model_4 (74.02%)
 
+// Bias correction: FER2013 model over-predicts NEUTRAL di foto nyata.
+// Kurangi neutral, boost angry & sad agar deteksi lebih realistis.
+// Format: [angry, happy, sad, neutral] — dalam ruang log (logit)
+const LOGIT_BIAS = [0.4, 0.0, 0.3, -1.5];
+function applyBias(raw) {
+  const log = raw.map((s, i) => Math.log(Math.max(s, 1e-9)) + LOGIT_BIAS[i]);
+  const mx  = Math.max(...log);
+  const exp = log.map(l => Math.exp(l - mx));
+  const sum = exp.reduce((a, b) => a + b, 0);
+  return exp.map(s => s / sum);
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 let emoModel = null, faceModel = null, stream = null, running = false;
 let smooth   = {angry:0, happy:0, sad:0, neutral:0};
@@ -448,8 +460,9 @@ async function loop() {
 
         const ms = Math.round(performance.now() - t0);
         document.getElementById('st-infer').textContent = `${ms} ms`;
-        updateScores(Array.from(scores));
-        drawBox(tx, ty, bx, by, CLASSES[Array.from(scores).reduce((a,v,i)=>v>scores[a]?i:a,0)]);
+        const adj = applyBias(Array.from(scores));
+        updateScores(adj);
+        drawBox(tx, ty, bx, by, CLASSES[adj.reduce((a,v,i)=>v>adj[a]?i:a,0)]);
       } else {
         document.getElementById('st-faces').textContent = 'Tidak ada';
         noFaceEl.style.display = 'block';
@@ -644,8 +657,9 @@ async function processPhoto(file) {
       return emoModel.predict(t);
     }).data();
 
+    const adj = applyBias(Array.from(scores));
     smooth = {angry:0, happy:0, sad:0, neutral:0};
-    updateScores(Array.from(scores));
+    updateScores(adj);
 
     // Tampilkan gambar + box
     const zone = document.getElementById('upload-zone');
@@ -666,7 +680,7 @@ async function processPhoto(file) {
       pc.height = previewImg.offsetHeight || previewImg.naturalHeight;
       const scx = pc.width  / faceBox.img_w;
       const scy = pc.height / faceBox.img_h;
-      const top = CLASSES[Array.from(scores).reduce((a,v,i)=>v>scores[a]?i:a,0)];
+      const top = CLASSES[adj.reduce((a,v,i)=>v>adj[a]?i:a,0)];
       const col = COLOR[top];
       const pctx = pc.getContext('2d');
       const bx = faceBox.tx * scx, by = faceBox.ty * scy;
@@ -675,7 +689,7 @@ async function processPhoto(file) {
       pctx.strokeStyle = col; pctx.lineWidth = 2;
       pctx.strokeRect(bx, by, bw, bh);
       pctx.shadowBlur = 0;
-      const txt = `${EMOJI[top]} ${top.toUpperCase()} ${(scores[CLASSES.indexOf(top)]*100).toFixed(0)}%`;
+      const txt = `${EMOJI[top]} ${top.toUpperCase()} ${(adj[CLASSES.indexOf(top)]*100).toFixed(0)}%`;
       pctx.font = 'bold 14px system-ui';
       const tw = pctx.measureText(txt).width;
       pctx.fillStyle = col; pctx.fillRect(bx-1, by-28, tw+16, 24);
