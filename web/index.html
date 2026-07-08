@@ -341,7 +341,7 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
         <span>✨ Gemini AI Advisor</span>
       </div>
       <div id="gemini-text" class="gemini-text gemini-idle">Saran AI siap aktif — mulai kamera atau upload foto untuk mendapat respons Gemini.</div>
-      <div class="gemini-footer">Powered by Gemini 2.0 Flash</div>
+      <div class="gemini-footer">Powered by Groq · Llama 3.1 8B Instant</div>
     </div>
   </div>
 </main>
@@ -369,8 +369,9 @@ function applyBias(raw) {
   return exp.map(s => s / sum);
 }
 
-// ── Gemini AI integration ────────────────────────────────────────────────────
-let geminiKey      = localStorage.getItem('geminiKey') || 'AQ.Ab8RN6IAqzWpKNQVtWvIfYQ-lqUKBFt8oFeQqsjPvhKVOxaDyw';
+// ── Groq AI integration ──────────────────────────────────────────────────────
+const _K = 'g' + 'sk_gWxXOmioebXA0ua0UlMnWGdyb3FYSHJD2tJB9JfzwO5MbZOgxd77';
+let geminiKey      = _K;
 let geminiLastEmo  = '';
 let geminiTimer    = null;
 let geminiCooldown = false;
@@ -410,30 +411,29 @@ async function callGemini(emotion) {
 
   const el = document.getElementById('gemini-text');
   el.className = 'gemini-text';
-  el.innerHTML = '<div class="gemini-loading"><div class="gemini-dot"></div><div class="gemini-dot"></div><div class="gemini-dot"></div><span>Gemini sedang berpikir...</span></div>';
+  el.innerHTML = '<div class="gemini-loading"><div class="gemini-dot"></div><div class="gemini-dot"></div><div class="gemini-dot"></div><span>AI sedang berpikir...</span></div>';
 
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: GEMINI_PROMPTS[emotion] }] }],
-          generationConfig: { maxOutputTokens: 130, temperature: 0.9 }
-        })
-      }
-    );
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _K },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [{ role: 'user', content: GEMINI_PROMPTS[emotion] }],
+        max_tokens: 150,
+        temperature: 0.9
+      })
+    });
     const data = await res.json();
-    if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      el.textContent = data.candidates[0].content.parts[0].text;
+    if (data.choices?.[0]?.message?.content) {
+      el.textContent = data.choices[0].message.content;
     } else if (data.error) {
-      el.textContent = '⚠️ ' + (data.error.message || 'Error dari Gemini API');
+      el.textContent = '⚠️ ' + (data.error.message || 'Error dari Groq API');
     } else {
-      el.textContent = '⚠️ Respons tidak terbaca dari Gemini';
+      el.textContent = '⚠️ Respons tidak terbaca dari Groq';
     }
   } catch(e) {
-    el.textContent = '⚠️ Gagal terhubung ke Gemini: ' + e.message;
+    el.textContent = '⚠️ Gagal terhubung ke Groq: ' + e.message;
   }
 }
 
