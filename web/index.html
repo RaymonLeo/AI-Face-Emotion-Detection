@@ -306,6 +306,77 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
 .upload-preview canvas {
   position: absolute; inset: 0; width: 100%; height: 100%;
 }
+/* ── Emotion Guide Section ──────────────────────────────────── */
+.emo-guide {
+  max-width: 1200px; margin: 0 auto 48px; padding: 0 20px;
+}
+.guide-heading {
+  font-size: 20px; font-weight: 700; text-align: center;
+  margin-bottom: 6px; letter-spacing: .5px;
+}
+.guide-sub {
+  text-align: center; color: var(--muted); font-size: 13.5px;
+  margin-bottom: 24px; line-height: 1.65; max-width: 600px; margin-left: auto; margin-right: auto;
+}
+.guide-divider {
+  height: 1px; background: var(--border); margin: 0 20px 32px;
+}
+.guide-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+}
+@media (max-width: 920px) { .guide-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .guide-grid { grid-template-columns: 1fr; } }
+.guide-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden;
+  transition: transform .22s, box-shadow .22s, border-color .3s;
+}
+.guide-card:hover { transform: translateY(-4px); box-shadow: 0 10px 28px rgba(0,0,0,.35); }
+.guide-top {
+  padding: 22px 16px 18px; display: flex; flex-direction: column;
+  align-items: center; gap: 10px; position: relative;
+}
+.guide-ico { font-size: 52px; line-height: 1; filter: drop-shadow(0 2px 6px rgba(0,0,0,.3)); }
+.guide-emo-label { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: 1.5px; text-transform: uppercase; }
+.guide-emo-en { font-size: 11px; color: rgba(255,255,255,.65); letter-spacing: .5px; }
+.angry-grad   { background: linear-gradient(135deg, #922b21, #e74c3c); }
+.happy-grad   { background: linear-gradient(135deg, #1e8449, #2ecc71); }
+.sad-grad     { background: linear-gradient(135deg, #1a5276, #3498db); }
+.neutral-grad { background: linear-gradient(135deg, #5d6d7e, #95a5a6); }
+.guide-body { padding: 16px; }
+.guide-meaning {
+  font-size: 12.5px; color: var(--muted); line-height: 1.7;
+  margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border);
+}
+.guide-meaning strong { color: var(--text); font-weight: 600; }
+.guide-section-label {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--muted); margin-bottom: 8px;
+}
+.guide-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px; }
+.guide-tag {
+  font-size: 11px; padding: 3px 10px; border-radius: 20px;
+  background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+}
+.guide-tip {
+  display: flex; gap: 9px; align-items: flex-start;
+  font-size: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); line-height: 1.5;
+}
+.guide-tip:last-child { border-bottom: none; }
+.guide-tip-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.guide-tip-text b { color: var(--text); }
+.guide-tip-text { color: var(--muted); }
+/* Active highlight per emotion */
+.guide-card.hi-angry   { border-color: rgba(231,76,60,.55)!important;  box-shadow: 0 0 24px rgba(231,76,60,.18)!important; }
+.guide-card.hi-happy   { border-color: rgba(46,204,113,.55)!important; box-shadow: 0 0 24px rgba(46,204,113,.18)!important; }
+.guide-card.hi-sad     { border-color: rgba(52,152,219,.55)!important; box-shadow: 0 0 24px rgba(52,152,219,.18)!important; }
+.guide-card.hi-neutral { border-color: rgba(149,165,166,.4)!important; box-shadow: 0 0 16px rgba(149,165,166,.1)!important; }
+@keyframes guide-in { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+.guide-card { animation: guide-in .5s ease both; }
+.guide-card:nth-child(1){animation-delay:.05s}
+.guide-card:nth-child(2){animation-delay:.12s}
+.guide-card:nth-child(3){animation-delay:.19s}
+.guide-card:nth-child(4){animation-delay:.26s}
 </style>
 </head>
 <body>
@@ -456,6 +527,100 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
   </div>
 </main>
 
+<!-- ── Emotion Guide ────────────────────────────────────────── -->
+<div class="guide-divider"></div>
+<section class="emo-guide">
+  <h2 class="guide-heading">📖 Panduan Mengenal &amp; Mengelola Emosi</h2>
+  <p class="guide-sub">Setiap emosi memiliki pesan tersendiri. Pahami penyebabnya dan pelajari cara terbaik untuk mengelolanya agar hidup lebih seimbang.</p>
+  <div class="guide-grid">
+
+    <!-- MARAH -->
+    <div class="guide-card" id="guide-angry">
+      <div class="guide-top angry-grad">
+        <span class="guide-ico">😠</span>
+        <span class="guide-emo-label">Marah</span>
+        <span class="guide-emo-en">Angry</span>
+      </div>
+      <div class="guide-body">
+        <p class="guide-meaning"><strong>Apa itu?</strong> Kemarahan adalah respons emosional kuat terhadap frustrasi, ketidakadilan, atau ancaman. Ini sinyal bahwa ada sesuatu yang melanggar nilai atau batas dirimu.</p>
+        <div class="guide-section-label">⚡ Penyebab Umum</div>
+        <div class="guide-tags">
+          <span class="guide-tag">Frustrasi</span><span class="guide-tag">Ketidakadilan</span><span class="guide-tag">Stress</span><span class="guide-tag">Konflik</span>
+        </div>
+        <div class="guide-section-label">✅ Cara Mengelola</div>
+        <div class="guide-tip"><span class="guide-tip-icon">🌬️</span><span class="guide-tip-text"><b>Box breathing</b> — Tarik 4 dtk → tahan 4 dtk → lepas 4 dtk. Ulangi 4x.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">🚶</span><span class="guide-tip-text"><b>Jalan kaki</b> — Tinggalkan situasi sejenak, gerakkan tubuh 5 menit.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">✍️</span><span class="guide-tip-text"><b>Journaling</b> — Tulis apa yang membuatmu marah untuk mengeluarkan energi negatif.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">🧊</span><span class="guide-tip-text"><b>Teknik dingin</b> — Cuci muka air dingin untuk menenangkan sistem saraf.</span></div>
+      </div>
+    </div>
+
+    <!-- BAHAGIA -->
+    <div class="guide-card" id="guide-happy">
+      <div class="guide-top happy-grad">
+        <span class="guide-ico">😊</span>
+        <span class="guide-emo-label">Bahagia</span>
+        <span class="guide-emo-en">Happy</span>
+      </div>
+      <div class="guide-body">
+        <p class="guide-meaning"><strong>Apa itu?</strong> Kebahagiaan adalah emosi positif yang muncul saat kebutuhan dan nilai hidupmu terpenuhi. Sinyal bahwa kamu berada di jalur yang tepat.</p>
+        <div class="guide-section-label">⚡ Pemicu Umum</div>
+        <div class="guide-tags">
+          <span class="guide-tag">Pencapaian</span><span class="guide-tag">Koneksi sosial</span><span class="guide-tag">Gratitude</span><span class="guide-tag">Kesehatan</span>
+        </div>
+        <div class="guide-section-label">✅ Cara Mempertahankan</div>
+        <div class="guide-tip"><span class="guide-tip-icon">📱</span><span class="guide-tip-text"><b>Bagikan</b> — Ceritakan momen bahagiamu dengan orang yang kamu sayangi.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">📝</span><span class="guide-tip-text"><b>Gratitude journal</b> — Catat 3 hal yang membuatmu bersyukur hari ini.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">🎁</span><span class="guide-tip-text"><b>Rayakan</b> — Beri penghargaan pada dirimu sendiri atas pencapaian sekecil apapun.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">🌱</span><span class="guide-tip-text"><b>Spread joy</b> — Lakukan satu kebaikan kecil untuk orang lain hari ini.</span></div>
+      </div>
+    </div>
+
+    <!-- SEDIH -->
+    <div class="guide-card" id="guide-sad">
+      <div class="guide-top sad-grad">
+        <span class="guide-ico">😢</span>
+        <span class="guide-emo-label">Sedih</span>
+        <span class="guide-emo-en">Sad</span>
+      </div>
+      <div class="guide-body">
+        <p class="guide-meaning"><strong>Apa itu?</strong> Kesedihan adalah respons normal terhadap kehilangan, kekecewaan, atau situasi yang menyakitkan. Merasakannya sepenuhnya adalah bagian penting dari pemulihan.</p>
+        <div class="guide-section-label">⚡ Penyebab Umum</div>
+        <div class="guide-tags">
+          <span class="guide-tag">Kehilangan</span><span class="guide-tag">Kekecewaan</span><span class="guide-tag">Kesepian</span><span class="guide-tag">Trauma</span>
+        </div>
+        <div class="guide-section-label">✅ Cara Melaluinya</div>
+        <div class="guide-tip"><span class="guide-tip-icon">💬</span><span class="guide-tip-text"><b>Bicara</b> — Ceritakan perasaanmu pada seseorang yang kamu percaya.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">🎵</span><span class="guide-tip-text"><b>Musik &amp; Film</b> — Dengarkan musik favorit atau tonton sesuatu yang menghibur.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">🛌</span><span class="guide-tip-text"><b>Self-care</b> — Tidur cukup, makan, dan minum air yang cukup.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">🌊</span><span class="guide-tip-text"><b>Izinkan diri</b> — Tidak apa-apa untuk bersedih. Tangis adalah proses penyembuhan.</span></div>
+      </div>
+    </div>
+
+    <!-- NETRAL -->
+    <div class="guide-card" id="guide-neutral">
+      <div class="guide-top neutral-grad">
+        <span class="guide-ico">😐</span>
+        <span class="guide-emo-label">Netral</span>
+        <span class="guide-emo-en">Neutral</span>
+      </div>
+      <div class="guide-body">
+        <p class="guide-meaning"><strong>Apa itu?</strong> Kondisi netral adalah keadaan emosional yang stabil dan seimbang — bukan datar, tapi tenang. Ini kondisi terbaik untuk berpikir rasional dan membuat keputusan.</p>
+        <div class="guide-section-label">⚡ Kapan Terjadi?</div>
+        <div class="guide-tags">
+          <span class="guide-tag">Aktivitas rutin</span><span class="guide-tag">Istirahat</span><span class="guide-tag">Fokus kerja</span><span class="guide-tag">Meditasi</span>
+        </div>
+        <div class="guide-section-label">✅ Cara Memanfaatkan</div>
+        <div class="guide-tip"><span class="guide-tip-icon">🎯</span><span class="guide-tip-text"><b>Set prioritas</b> — Tentukan 1 hal terpenting yang ingin diselesaikan hari ini.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">🧘</span><span class="guide-tip-text"><b>Meditasi</b> — Lakukan meditasi singkat 5 menit untuk memperkuat ketenangan.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">📚</span><span class="guide-tip-text"><b>Belajar</b> — Pikiran jernih adalah waktu terbaik menyerap pengetahuan baru.</span></div>
+        <div class="guide-tip"><span class="guide-tip-icon">🔄</span><span class="guide-tip-text"><b>Refleksi</b> — Review progress minggu ini dan rencanakan langkah selanjutnya.</span></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
 <script>
 // ── Konstanta ────────────────────────────────────────────────────────────────
 const CLASSES = ['angry','happy','sad','neutral'];
@@ -519,6 +684,10 @@ function updateEmoInfo(emo) {
   mainCard.className = 'card glow-' + emo;
   // Pulse ring color
   document.getElementById('emo-ring').style.borderColor = COLOR[emo];
+  // Highlight active guide card
+  document.querySelectorAll('.guide-card').forEach(c => c.classList.remove('hi-angry','hi-happy','hi-sad','hi-neutral'));
+  const gc = document.getElementById('guide-' + emo);
+  if (gc) { gc.classList.add('hi-' + emo); gc.scrollIntoView({behavior:'smooth', block:'nearest'}); }
 }
 
 function captureFrame() {
