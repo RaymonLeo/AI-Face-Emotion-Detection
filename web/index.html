@@ -104,32 +104,39 @@ button.primary {
 }
 button.primary:hover { background: var(--accent2); border-color: var(--accent2); }
 /* ── Emotion panel ───────────────────────────────────────────── */
-.emo-section { display: flex; flex-direction: column; gap: 14px; }
+.emo-section { display: flex; flex-direction: column; gap: 12px; }
 .card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px;
 }
 /* Big emotion display */
-.emo-main { text-align: center; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
-.emo-emoji {
-  font-size: 68px; line-height: 1; display: block; margin-bottom: 10px;
-  transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+.emo-card-top {
+  margin: -18px -18px 16px; border-radius: 14px 14px 0 0; padding: 22px 18px 18px;
+  background: linear-gradient(160deg, rgba(149,165,166,.18) 0%, rgba(149,165,166,.04) 100%);
+  text-align: center; transition: background .5s;
+  border-bottom: 1px solid var(--border);
 }
-.emo-emoji.pop { transform: scale(1.25); }
+.emo-main { text-align: center; }
+.emo-emoji {
+  font-size: 58px; line-height: 1; display: block; margin-bottom: 8px;
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1), filter .3s;
+  filter: drop-shadow(0 4px 12px rgba(149,165,166,.35));
+}
+.emo-emoji.pop { transform: scale(1.28); }
 .emo-label {
-  font-size: 24px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+  font-size: 22px; font-weight: 800; letter-spacing: 4px; text-transform: uppercase;
   transition: color .3s;
 }
-.emo-conf { font-size: 14px; color: var(--muted); margin-top: 4px; }
+.emo-conf { font-size: 12px; color: var(--muted); margin-top: 3px; }
 /* Bars */
-.emo-bars { display: flex; flex-direction: column; gap: 11px; }
-.bar-row { display: flex; flex-direction: column; gap: 5px; }
-.bar-header { display: flex; justify-content: space-between; font-size: 13px; }
+.emo-bars { display: flex; flex-direction: column; gap: 9px; }
+.bar-row { display: flex; flex-direction: column; gap: 4px; }
+.bar-header { display: flex; justify-content: space-between; font-size: 12.5px; }
 .bar-name { display: flex; align-items: center; gap: 6px; font-weight: 500; }
-.bar-pct { font-weight: 600; font-size: 13px; color: var(--muted); transition: color .3s; }
+.bar-pct { font-weight: 700; font-size: 12.5px; color: var(--muted); transition: color .3s; }
 .bar-track {
-  height: 7px; background: rgba(255,255,255,.06); border-radius: 4px; overflow: hidden;
+  height: 9px; background: rgba(255,255,255,.06); border-radius: 5px; overflow: hidden;
 }
-.bar-fill { height: 100%; border-radius: 4px; width: 0%; transition: width .3s ease; }
+.bar-fill { height: 100%; border-radius: 5px; width: 0%; transition: width .35s ease; }
 /* Status card */
 .stat-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -455,13 +462,15 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
   <div class="emo-section">
     <!-- Emosi utama + bar -->
     <div class="card">
-      <div class="emo-main">
-        <div class="emo-emoji-wrap">
-          <div class="emo-ring" id="emo-ring" style="border-color:var(--neutral)"></div>
-          <span class="emo-emoji" id="emo-emoji" data-emo="neutral">😐</span>
+      <div class="emo-card-top" id="emo-card-top">
+        <div class="emo-main">
+          <div class="emo-emoji-wrap">
+            <div class="emo-ring" id="emo-ring" style="border-color:var(--neutral)"></div>
+            <span class="emo-emoji" id="emo-emoji" data-emo="neutral">😐</span>
+          </div>
+          <div class="emo-label" id="emo-label" style="color:var(--neutral)">NEUTRAL</div>
+          <div class="emo-conf" id="emo-conf">Arahkan wajah ke kamera</div>
         </div>
-        <div class="emo-label" id="emo-label" style="color:var(--neutral)">NEUTRAL</div>
-        <div class="emo-conf" id="emo-conf">—</div>
       </div>
       <div class="emo-bars" id="emo-bars"></div>
     </div>
@@ -834,7 +843,13 @@ function updateScores(rawScores) {
     document.getElementById('emo-label').textContent = top.toUpperCase();
     document.getElementById('emo-label').style.color = COLOR[top];
     emojiEl.classList.add('pop');
+    emojiEl.style.filter = `drop-shadow(0 4px 16px ${COLOR[top]}88)`;
     setTimeout(() => emojiEl.classList.remove('pop'), 300);
+    // Gradient header color
+    const hex = COLOR[top].replace('#','');
+    const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+    document.getElementById('emo-card-top').style.background =
+      `linear-gradient(160deg, rgba(${r},${g},${b},.22) 0%, rgba(${r},${g},${b},.04) 100%)`;
     updateEmoInfo(top);
     triggerGemini(top);
   }
