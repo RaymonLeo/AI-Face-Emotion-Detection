@@ -220,6 +220,55 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
   cursor: pointer; font-size: 16px; line-height: 1;
 }
 .chat-input-row button:hover { background: var(--accent2); }
+/* Snapshot preview */
+.snap-area { display: none; margin-top: 12px; border-radius: 10px; overflow: hidden; position: relative; border: 2px solid var(--accent); }
+.snap-area img { width: 100%; display: block; }
+.snap-badge {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,.72); color: #fff; font-size: 13px; font-weight: 600;
+  padding: 5px 14px; border-radius: 20px; white-space: nowrap;
+  border: 1px solid rgba(255,255,255,.15); backdrop-filter: blur(4px);
+}
+.snap-ts {
+  position: absolute; top: 8px; right: 10px; font-size: 10px; color: rgba(255,255,255,.6);
+  background: rgba(0,0,0,.5); padding: 2px 8px; border-radius: 10px;
+}
+/* Camera flash */
+@keyframes flash { 0%{opacity:0} 20%{opacity:.9} 100%{opacity:0} }
+.flash-overlay {
+  position: absolute; inset: 0; background: #fff; opacity: 0;
+  pointer-events: none; animation: flash .35s ease-out;
+}
+/* Emotion info card */
+.emo-info-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.emo-info-emoji { font-size: 24px; }
+.emo-info-title { font-size: 14px; font-weight: 700; transition: color .3s; }
+.emo-info-subtitle { font-size: 10px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+.emo-info-desc { font-size: 12px; color: var(--muted); line-height: 1.7; margin-bottom: 12px; }
+.emo-tips { display: flex; flex-direction: column; gap: 6px; }
+.emo-tip {
+  font-size: 12px; padding: 7px 10px; background: var(--surface2);
+  border-radius: 8px; border-left: 3px solid var(--accent); line-height: 1.45;
+  transition: border-color .3s;
+}
+/* Card glow per emosi */
+.card { transition: box-shadow .4s, border-color .4s; }
+.glow-angry  { box-shadow: 0 0 22px rgba(231,76,60,.18);  border-color: rgba(231,76,60,.4)!important; }
+.glow-happy  { box-shadow: 0 0 22px rgba(46,204,113,.18); border-color: rgba(46,204,113,.4)!important; }
+.glow-sad    { box-shadow: 0 0 22px rgba(52,152,219,.18); border-color: rgba(52,152,219,.4)!important; }
+.glow-neutral{ box-shadow: none; }
+/* Emoji pulse ring */
+.emo-emoji-wrap {
+  position: relative; display: inline-block; margin-bottom: 10px;
+}
+.emo-ring {
+  position: absolute; inset: -8px; border-radius: 50%;
+  border: 2px solid transparent; animation: ring-pulse 2s ease-in-out infinite;
+}
+@keyframes ring-pulse {
+  0%,100%{ transform: scale(1); opacity:.4; }
+  50%{ transform: scale(1.18); opacity:.9; }
+}
 /* No-face message */
 .no-face {
   display: none; position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
@@ -310,8 +359,10 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
       </div>
       <div class="controls">
         <button class="primary" id="btn-cam" onclick="toggleCamera()">📷 Mulai Kamera</button>
-        <button onclick="clearCache()" title="Hapus cache model dari IndexedDB browser">🗑️ Hapus Cache</button>
+        <button id="btn-snap" onclick="captureFrame()" disabled title="Ambil foto dari kamera">📸 Capture</button>
+        <button onclick="clearCache()" title="Hapus cache model">🗑️ Cache</button>
       </div>
+      <div class="snap-area" id="snap-area"></div>
     </div>
 
     <!-- Upload mode -->
@@ -334,11 +385,31 @@ button.primary:hover { background: var(--accent2); border-color: var(--accent2);
     <!-- Emosi utama + bar -->
     <div class="card">
       <div class="emo-main">
-        <span class="emo-emoji" id="emo-emoji" data-emo="neutral">😐</span>
+        <div class="emo-emoji-wrap">
+          <div class="emo-ring" id="emo-ring" style="border-color:var(--neutral)"></div>
+          <span class="emo-emoji" id="emo-emoji" data-emo="neutral">😐</span>
+        </div>
         <div class="emo-label" id="emo-label" style="color:var(--neutral)">NEUTRAL</div>
         <div class="emo-conf" id="emo-conf">—</div>
       </div>
       <div class="emo-bars" id="emo-bars"></div>
+    </div>
+
+    <!-- Emotion info -->
+    <div class="card" id="emo-info-card">
+      <div class="emo-info-header">
+        <span class="emo-info-emoji" id="info-emoji">😐</span>
+        <div>
+          <div class="emo-info-title" id="info-title" style="color:var(--neutral)">Tentang Netral</div>
+          <div class="emo-info-subtitle">Analisis & Tips</div>
+        </div>
+      </div>
+      <p class="emo-info-desc" id="info-desc">Kondisi emosional yang stabil dan seimbang — waktu terbaik untuk berpikir jernih dan mengambil keputusan.</p>
+      <div class="emo-tips" id="info-tips">
+        <div class="emo-tip">🎯 Fokus pada hal yang ingin kamu capai hari ini</div>
+        <div class="emo-tip">🧘 Coba meditasi singkat 5 menit</div>
+        <div class="emo-tip">📚 Waktu bagus untuk belajar hal baru</div>
+      </div>
     </div>
 
     <!-- Status -->
@@ -414,6 +485,65 @@ let geminiKey      = _K;
 let geminiLastEmo  = '';
 let geminiTimer    = null;
 let geminiCooldown = false;
+
+const EMO_INFO = {
+  angry: {
+    desc: 'Kemarahan adalah respons alami terhadap frustrasi, ketidakadilan, atau ancaman. Emosi ini memberi energi untuk bertindak, namun perlu dikelola agar tidak merugikan diri sendiri maupun orang lain.',
+    tips: ['🌬️ Tarik napas 4 detik → tahan 4 → lepas 4 detik (box breathing)', '🚶 Tinggalkan situasi sejenak, berjalan kaki 5 menit', '✍️ Tulis apa yang membuatmu marah — keluarkan di kertas dulu']
+  },
+  happy: {
+    desc: 'Kebahagiaan muncul dari pencapaian, hubungan sosial yang baik, atau hal-hal sederhana yang menyenangkan. Ini adalah sinyal bahwa hidupmu berjalan sesuai nilai-nilaimu.',
+    tips: ['📱 Bagikan momen ini dengan orang yang kamu sayangi', '📝 Catat 3 hal yang membuatmu bahagia hari ini di jurnal', '🎁 Rayakan pencapaian sekecil apapun — kamu layak mendapatkannya']
+  },
+  sad: {
+    desc: 'Kesedihan adalah respons normal terhadap kehilangan, kekecewaan, atau situasi sulit. Merasakannya sepenuhnya justru penting untuk pemulihan emosional yang sehat.',
+    tips: ['💬 Ceritakan perasaanmu pada orang yang kamu percaya', '🎵 Dengarkan musik favorit atau tonton film yang menghibur', '🛌 Jaga diri — tidur cukup, makan, dan minum air yang cukup']
+  },
+  neutral: {
+    desc: 'Kondisi netral adalah keadaan emosional yang stabil dan seimbang. Ini adalah waktu terbaik untuk berpikir jernih, membuat rencana, dan mengambil keputusan penting.',
+    tips: ['🎯 Tentukan 1 prioritas utama yang ingin diselesaikan hari ini', '🧘 Coba sesi meditasi atau pernapasan mindfulness 5 menit', '📚 Manfaatkan kejernihan pikiranmu untuk belajar hal baru']
+  }
+};
+
+function updateEmoInfo(emo) {
+  const info = EMO_INFO[emo];
+  if (!info) return;
+  document.getElementById('info-emoji').textContent = EMOJI[emo];
+  const title = document.getElementById('info-title');
+  title.textContent = 'Tentang ' + emo[0].toUpperCase() + emo.slice(1);
+  title.style.color = COLOR[emo];
+  document.getElementById('info-desc').textContent = info.desc;
+  document.getElementById('info-tips').innerHTML = info.tips.map(t => `<div class="emo-tip" style="border-left-color:${COLOR[emo]}">${t}</div>`).join('');
+  // Glow on emotion card
+  const mainCard = document.querySelector('.emo-section .card');
+  mainCard.className = 'card glow-' + emo;
+  // Pulse ring color
+  document.getElementById('emo-ring').style.borderColor = COLOR[emo];
+}
+
+function captureFrame() {
+  if (!running || !video.videoWidth) return;
+  // Draw mirrored-back video to canvas
+  const snap = document.createElement('canvas');
+  snap.width = video.videoWidth; snap.height = video.videoHeight;
+  const sc = snap.getContext('2d');
+  sc.translate(snap.width, 0); sc.scale(-1, 1);
+  sc.drawImage(video, 0, 0);
+  // Flash effect
+  const wrap = document.getElementById('cam-wrap');
+  const fl = document.createElement('div');
+  fl.className = 'flash-overlay'; wrap.appendChild(fl);
+  setTimeout(() => fl.remove(), 400);
+  // Show preview with current emotion label
+  const top = CLASSES.reduce((a, e) => smooth[e] > smooth[a] ? e : a, CLASSES[0]);
+  const ts  = new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const area = document.getElementById('snap-area');
+  area.style.display = 'block';
+  area.innerHTML = `
+    <img src="${snap.toDataURL('image/jpeg', 0.9)}" alt="Snapshot">
+    <div class="snap-badge">${EMOJI[top]} ${top.toUpperCase()} — ${(smooth[top]*100).toFixed(0)}%</div>
+    <div class="snap-ts">${ts}</div>`;
+}
 
 const GEMINI_PROMPTS = {
   angry:   'Pengguna terdeteksi MARAH. Berikan respons 2-3 kalimat dalam Bahasa Indonesia yang empatik dan menenangkan, dengan saran praktis mengatasi kemarahan. Gunakan emoji relevan. Variasikan pembukaan.',
@@ -536,6 +666,7 @@ function updateScores(rawScores) {
     document.getElementById('emo-label').style.color = COLOR[top];
     emojiEl.classList.add('pop');
     setTimeout(() => emojiEl.classList.remove('pop'), 300);
+    updateEmoInfo(top);
     triggerGemini(top);
   }
   document.getElementById('emo-conf').textContent = (conf * 100).toFixed(1) + '% confidence';
@@ -667,6 +798,7 @@ async function toggleCamera() {
     video.style.display = 'none';
     document.getElementById('placeholder').style.display = 'flex';
     btn.textContent = '📷 Mulai Kamera'; btn.classList.remove('primary');
+    document.getElementById('btn-snap').disabled = true;
     document.getElementById('st-cam').textContent = 'Tidak aktif';
     document.getElementById('st-cam').className = 'stat-val';
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -688,6 +820,7 @@ async function toggleCamera() {
     document.getElementById('st-cam').className = 'stat-val ok';
     running = true;
     btn.textContent = '⏹️ Hentikan'; btn.classList.add('primary'); btn.disabled = false;
+    document.getElementById('btn-snap').disabled = false;
     loop();
   } catch(e) {
     document.getElementById('st-cam').textContent = 'Error: ' + e.message;
